@@ -3,20 +3,20 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to edX SQL Grader's documentation!
-===============================================
+BU edX SQL Grader
+=================
 
-Contents:
+A SQL problem evaluator for use with your edX course.
+
+Uses the `BU edX external grader framework <https://github.com/bu-ist/bux-grader-framework>`_.
+
+API Documentation
+-----------------
+
+.. toctree::
+    :maxdepth: 2
+
+    api
 
 .. toctree::
    :maxdepth: 2
-
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
