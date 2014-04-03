@@ -205,7 +205,6 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             try:
                 cursor.execute(stmt)
                 rows = cursor.fetchall()
-                print rows
 
                 cols = []
                 if cursor.description:
