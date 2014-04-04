@@ -107,7 +107,7 @@ class S3UploaderMixin(object):
 class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
         """ An evaluator class that handles SQL problems. """
 
-        name = "sql"
+        name = "mysql"
 
         def __init__(self, database, host, user, passwd, port=3306, *args,
                      **kwargs):
