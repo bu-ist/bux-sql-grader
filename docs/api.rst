@@ -14,6 +14,11 @@ Classes
 .. autoclass:: bux_sql_grader.mysql.S3UploaderMixin
    :members:
 
+Scoring
+-------
+.. autoclass:: bux_sql_grader.scoring.MySQLScorer
+   :members:
+
 Exceptions
 ----------
 .. autoexception:: bux_sql_grader.mysql.InvalidQuery

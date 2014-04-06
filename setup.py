@@ -15,5 +15,5 @@ setup(
     long_description=open('README.md').read(),
     packages=['bux_sql_grader'],
     license='LICENSE',
-    install_requires=['boto', 'MySQL-python']
+    install_requires=['boto', 'MySQL-python', 'numpy']
 )

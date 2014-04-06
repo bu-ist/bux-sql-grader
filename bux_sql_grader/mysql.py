@@ -7,6 +7,7 @@
 """
 
 import csv
+import json
 import logging
 
 import MySQLdb
@@ -20,6 +21,8 @@ from boto.s3.key import Key
 
 from bux_grader_framework import BaseEvaluator
 from bux_grader_framework.exceptions import ImproperlyConfiguredGrader
+
+from .scoring import MySQLScorer
 
 
 log = logging.getLogger(__file__)
@@ -167,16 +170,19 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                     response["msg"] = INVALID_GRADER_QUERY.substitute(context)
                     return response
 
-                correct, score = self.grade_results(stu_results,
-                                                    grader_results)
-                response = self.build_response(correct, score,
+                correct, score, messages = self.grade_results(student_response,
+                                                              stu_results,
+                                                              grader_answer,
+                                                              grader_results,
+                                                              payload)
+                response = self.build_response(correct, score, messages,
                                                stu_results, grader_results,
                                                row_limit)
             else:
                 # If no grader answer was found in the payload this is a
                 # sandbox query. These are always correct.
-                response = self.build_response(True, 1, stu_results,
-                                               row_limit)
+                response = self.build_response(True, 1, '',
+                                               stu_results, row_limit)
 
             # Upload student results to S3 if student query returned any rows
             # Append the download link to the response message on success.
@@ -215,14 +221,16 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 raise InvalidQuery("MySQL Error {}: {}".format(code, msg))
             return cols, rows
 
-        def grade_results(self, stu_results, grader_results):
+        def grade_results(self, student_answer, student_results, grader_answer,
+                          grader_results, payload):
             """ Compares student and grader responses to generate a score """
-            stu_cols, stu_rows = stu_results
-            ans_cols, ans_rows = grader_results
 
-            if stu_rows == ans_rows:
-                return True, 1
-            return False, 0
+            score_map = payload.get('score_map', None)
+            scorer = MySQLScorer(student_answer, student_results,
+                                 grader_answer, grader_results, score_map)
+            score, messages = scorer.score()
+            correct = (score == 1)
+            return correct, score, messages
 
         def upload_results(self, results, path, filename):
             """ Upload student results CSV """
@@ -237,7 +245,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
             return download_link
 
-        def build_response(self, correct, score, student_results,
+        def build_response(self, correct, score, hints, student_results,
                            grader_results=None, row_limit=None):
             """ Build a message """
 
@@ -252,6 +260,13 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             else:
                 context = {"results": student_html}
                 message = CORRECT_QUERY.substitute(context)
+
+            if hints:
+                message += "<strong>Hints:</strong>"
+                message += "<ul>"
+                for hint in hints:
+                    message += '<li>' + hint + '</li>'
+                message += "</ul>"
 
             response["msg"] = message
             return response

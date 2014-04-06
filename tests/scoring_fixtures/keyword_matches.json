@@ -1,0 +1,16 @@
+[
+    {
+        "student_answer": "SELECT yearID, HR FROM Batting WHERE yearID = '2010' ORDER BY HR DESC LIMIT 10",
+        "student_results": [],
+        "grader_answer": "SELECT yearID, HR FROM Batting WHERE yearID = '2010' ORDER BY HR DESC LIMIT 10",
+        "grader_results": [],
+        "expected_score": [1, ""]
+    },
+    {
+        "student_answer": "SELECT yearID, HR FROM Batting WHERE yearID = '2010' ORDER BY HR ASC",
+        "student_results": [],
+        "grader_answer": "SELECT yearID, HR FROM Batting WHERE yearID = '2010' ORDER BY HR DESC LIMIT 10",
+        "grader_results": [],
+        "expected_score": [0.5714285714285714, "Your query is missing keywords: LIMIT, DESC. Your query contains incorrect keyword: ASC."]
+    }
+]
