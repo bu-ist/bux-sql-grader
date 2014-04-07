@@ -84,11 +84,13 @@ class MySQLScorer(object):
 
     def rows_match(self):
         """ Perscribes points for matching rows """
-        score = 0
-        msg = ''
-        if self.student_results[1] == self.grader_results[1]:
-            score = 1
 
-        # Add unsorted row comparison logic here to provide partial credit
+        msg = ""
+        score = rows_match(self.student_results[1], self.grader_results[1])
 
         return score, msg
+
+
+def rows_match(student_rows, grader_rows):
+    """ Compares result rows for equality, returning a score between 0 - 1 """
+    return student_rows == grader_rows
