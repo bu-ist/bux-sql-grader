@@ -32,8 +32,7 @@ class MySQLScorer(object):
     #: Maps scoring methods to weight contributed to overall score
     #: Can be overriden by passing an alternate ``score_map``
     DEFAULT_SCORE_MAP = {
-        'rows_match': 1,
-        'keywords_match': 0.25,
+        'rows_match': 1
     }
 
     def __init__(self, student_answer, student_results, grader_answer,
@@ -93,41 +92,3 @@ class MySQLScorer(object):
         # Add unsorted row comparison logic here to provide partial credit
 
         return score, msg
-
-    def keywords_match(self):
-        """ Perscibes points for keyword matches """
-        KEYWORDS = ['WHERE', 'ORDER BY', 'LIMIT', 'JOIN', 'ASC', 'DESC']
-        messages = []
-        scores = []
-        missing = []
-        extra = []
-
-        for keyword in KEYWORDS:
-
-            # Find missing keywords
-            if keyword in self.grader_answer.upper():
-                if keyword not in self.student_answer.upper():
-                    scores.append(0)
-                    missing.append(keyword)
-                else:
-                    scores.append(1)
-
-            # Detect extra keywords
-            if keyword in self.student_answer.upper():
-                if keyword not in self.grader_answer.upper():
-                    scores.append(0)
-                    extra.append(keyword)
-                else:
-                    scores.append(1)
-
-        # Calculate average
-        score = numpy.average(scores)
-
-        # Generate hints
-        if missing:
-            messages.append("Your query is missing keyword{}: {}.".format("s"[len(missing) == 1:],
-                                                                        ", ".join(missing)))
-        if extra:
-            messages.append("Your query contains incorrect keyword{}: {}.".format("s"[len(extra) == 1:],
-                                                                                ", ".join(extra)))
-        return score, " ".join(messages)

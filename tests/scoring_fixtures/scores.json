@@ -23,6 +23,6 @@
             ["yearID", "HR"],
             [[2010, 50], [2010, 55]]
             ],
-        "expected_score": [0.15, ["Your query is missing keyword: DESC. Your query contains incorrect keyword: ASC."]]
+        "expected_score": [0, []]
     }
 ]
