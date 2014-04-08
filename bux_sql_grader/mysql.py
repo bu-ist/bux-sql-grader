@@ -109,21 +109,24 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
         name = "mysql"
 
-        def __init__(self, database, host, user, passwd, port=3306, *args,
-                     **kwargs):
+        def __init__(self, database, host, user, passwd, port=3306, timeout=10,
+                     *args, **kwargs):
             self.database = database
             self.host = host
             self.user = user
             self.passwd = passwd
             self.port = port
+            self.timeout = timeout
 
             super(MySQLEvaluator, self).__init__(*args, **kwargs)
 
         def db_connect(self, database):
             try:
                 db = MySQLdb.connect(self.host, self.user, self.passwd,
-                                     database, self.port)
+                                     database, self.port,
+                                     connect_timeout=self.timeout)
             except OperationalError as e:
+                log.exception("Could not connect to DB")
                 raise ImproperlyConfiguredGrader(e)
 
             return db
