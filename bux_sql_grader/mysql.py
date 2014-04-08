@@ -19,6 +19,7 @@ from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 
 from bux_grader_framework import BaseEvaluator
+from bux_grader_framework.util import timer
 from bux_grader_framework.exceptions import ImproperlyConfiguredGrader
 
 
@@ -131,6 +132,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
             return db
 
+        @timer
         def evaluate(self, submission):
             """ Evaluate SQL query problems
 
@@ -195,6 +197,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
             return response
 
+        @timer
         def execute_query(self, db, stmt):
             """ Execute the SQL query
 
@@ -227,6 +230,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 return True, 1
             return False, 0
 
+        @timer
         def upload_results(self, results, path, filename):
             """ Upload student results CSV """
             csv_results = self.csv_results(results)
