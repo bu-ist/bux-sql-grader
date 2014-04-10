@@ -26,16 +26,18 @@ log = logging.getLogger(__file__)
 
 INVALID_STUDENT_QUERY = Template("""
 <div class="error">
-    <p>Could not execute query: <code>$query</code></p>
-    <h4>Error:</h4>
+    <h4 style="color: red">Could not execute query:</h4>
+    <pre><code>$query</code></pre>
+    <h4 style="color: red">Error:</h4>
     <pre><code>$error</code></pre>
 </div>""")
 
 INVALID_GRADER_QUERY = Template("""
 <div class="error">
-    <p><strong>Invalid grader query</strong>: <code>$query</code></p>
+    <h4 style="color: red">Invalid grader query:</h4>
+    <pre><code>$query</code></pre>
     <p>Please report this issue to the course staff.</p>
-    <h4>Error:</h4>
+    <h4 style="color: red">Error:</h4>
     <pre><code>$error</code></pre>
 </div>""")
 
@@ -52,6 +54,13 @@ INCORRECT_QUERY = Template("""
     <h3>Your Results</h3>
     $actual
 </div>""")
+
+HINTS = Template("""
+<h3 style="color: red">Hints:</h3>
+<ul style="color: red">
+$hint_list
+</ul>
+""")
 
 DOWNLOAD_MESSAGE = Template("""
 <p>Download your full results as CSV: <a href="$url">$filename</a></p>
@@ -305,7 +314,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             return html
 
         def result_stats(self, displayed, total):
-            return "<p>Showing %d of %s row%s.</p>" % (displayed, total,
+            return "<small>Showing %d of %s row%s.</small>" % (displayed, total,
                                                        "s"[total == 1:])
 
         def sanitize_row_limit(self, limit):
