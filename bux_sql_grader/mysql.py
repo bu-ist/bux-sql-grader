@@ -49,10 +49,10 @@ CORRECT_QUERY = Template("""
 
 INCORRECT_QUERY = Template("""
 <div class="error">
-    <h3>Expected Results</h3>
-    $expected
     <h3>Your Results</h3>
     $actual
+    <h3>Expected Results</h3>
+    $expected
 </div>""")
 
 HINTS = Template("""
