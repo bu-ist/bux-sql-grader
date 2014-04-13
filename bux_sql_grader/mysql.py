@@ -90,7 +90,7 @@ class S3UploaderMixin(object):
 
         try:
             s3 = S3Connection(self.aws_access_key, self.aws_secret_key)
-            bucket = s3.create_bucket(self.s3_bucket)
+            bucket = s3.get_bucket(self.s3_bucket, validate=False)
 
             keyname = "{prefix}/{path}/{name}".format(prefix=self.s3_prefix,
                                                       path=path, name=name)
