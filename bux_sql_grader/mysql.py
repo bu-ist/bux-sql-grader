@@ -147,6 +147,8 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             row_limit = payload.get("row_limit", None)
             row_limit = self.sanitize_row_limit(row_limit)
 
+            upload_results = payload.get("upload_results", True)
+
             db = self.db_connect(database)
 
             response = {"correct": False, "score": 0, "msg": ""}
@@ -183,7 +185,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
             # Upload student results to S3 if student query returned any rows
             # Append the download link to the response message on success.
-            if stu_results[1]:
+            if upload_results and stu_results[1]:
                 key = header["submission_key"]
                 filename = payload.get("filename", self.DEFAULT_S3_FILENAME)
                 download_link = self.upload_results(stu_results, key, filename)
