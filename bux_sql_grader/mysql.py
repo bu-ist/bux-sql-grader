@@ -340,3 +340,12 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             message = "<div>" + message + "</div>"
 
             return message
+
+        def status(self):
+            """ Assert that a DB connection can be made """
+            try:
+                self.db_connect()
+            except ImproperlyConfiguredGrader:
+                return False
+            else:
+                return True
