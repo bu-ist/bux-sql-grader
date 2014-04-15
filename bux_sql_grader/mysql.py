@@ -22,7 +22,7 @@ from boto.s3.key import Key
 from bux_grader_framework import BaseEvaluator
 from bux_grader_framework.exceptions import ImproperlyConfiguredGrader
 
-from .scoring import MySQLScorer
+from .scoring import MySQLWeightedScorer
 
 
 log = logging.getLogger(__file__)
@@ -147,9 +147,6 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             row_limit = payload.get("row_limit", None)
             row_limit = self.sanitize_row_limit(row_limit)
 
-            score_map = payload.get("score_map", None)
-            score_map = self.parse_score_map(score_map)
-
             db = self.db_connect(database)
 
             response = {"correct": False, "score": 0, "msg": ""}
@@ -177,7 +174,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                                                               stu_results,
                                                               grader_answer,
                                                               grader_results,
-                                                              score_map)
+                                                              payload)
                 response = self.build_response(correct, score, messages,
                                                stu_results, grader_results,
                                                row_limit)
@@ -225,11 +222,12 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             return cols, rows
 
         def grade_results(self, student_answer, student_results, grader_answer,
-                          grader_results, score_map):
+                          grader_results, payload):
             """ Compares student and grader responses to generate a score """
 
-            scorer = MySQLScorer(student_answer, student_results,
-                                 grader_answer, grader_results, score_map)
+            scorer = MySQLWeightedScorer(student_answer, student_results,
+                                         grader_answer, grader_results,
+                                         payload)
             score, messages = scorer.score()
             correct = (score == 1)
             return correct, score, messages
@@ -321,24 +319,6 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
         def result_stats(self, displayed, total):
             return "<p>Showing %d of %s row%s.</p>" % (displayed, total,
                                                        "s"[total == 1:])
-
-        def parse_score_map(self, score_map):
-            """ Parses the ``score_map`` value passed in the grader payload
-
-                :param str score_map: a valid JSON string that maps scoring
-                                      functions to their respective weights.
-                :returns: a :class:`dict`, or ``None`` if ``score_map`` could
-                          not be parsed.
-
-            """
-            score_dict = None
-
-            if score_map:
-                try:
-                    score_dict = json.loads(score_map)
-                except (TypeError, ValueError):
-                    log.exception("Could not parse score map: %s", score_map)
-            return score_dict
 
         def sanitize_row_limit(self, limit):
             """ Cleans the ``row_limit`` value passed in the grader payload """

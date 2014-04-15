@@ -10,7 +10,8 @@
             ["yearID", "HR"],
             [[2010, 50], [2010, 55]]
             ],
-        "expected_score": [1.0, []]
+        "expected_score": [1.0, []],
+        "payload": {}
     },
     {
         "student_answer": "SELECT yearID, HR FROM Batting WHERE yearID = '2010' ORDER BY HR ASC LIMIT 10",
@@ -23,6 +24,7 @@
             ["yearID", "HR"],
             [[2010, 50], [2010, 55]]
             ],
-        "expected_score": [0, []]
+        "expected_score": [0, []],
+        "payload": {}
     }
 ]

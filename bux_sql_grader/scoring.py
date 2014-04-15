@@ -1,3 +1,4 @@
+import json
 import logging
 
 import numpy
@@ -5,8 +6,8 @@ import numpy
 log = logging.getLogger(__name__)
 
 
-class MySQLScorer(object):
-    """ Generates a score between 0 and 1 for a MySQL query problem.
+class MySQLBaseScorer(object):
+    """ Base class for scoring of MySQL query problems.
 
     :param str student_answer: the student query
     :param tuple student_results: a two item tuple: (result columns,
@@ -14,20 +15,53 @@ class MySQLScorer(object):
     :param str grader_answer: the student query
     :param tuple grader_results: a two item tuple: (result columns,
                                   result rows)
-    :param dict score_map: an optional scoring map which will override DEFAULT_SCORE_MAP
+    :param dict payload: the grader payload submitted with the submission
     :returns: a two item tuple with score (float), message (str)
     :rtype: tuple
 
     This class defines several test methods that score various aspects of the
     query results.
 
-    The ``DEFAULT_SCORE_MAP`` defines a dict mapping scoring method to
-    weight.
+    Subclasses must implement the ``score`` method to implement a specific
+    scoring algorothim.
+
+    """
+    def __init__(self, student_answer, student_results, grader_answer,
+                 grader_results, payload):
+        self.student_answer = student_answer
+        self.student_results = student_results
+        self.grader_answer = grader_answer
+        self.grader_results = grader_results
+        self.payload = payload
+
+    def score(self):
+        """ Subclasses should implement the scoring algorithm """
+        raise NotImplemented
+
+    def rows_match(self):
+        """ Perscribes points for matching rows """
+
+        msg = ""
+        score = rows_match(self.student_results[1], self.grader_results[1])
+
+        return score, msg
+
+
+class MySQLWeightedScorer(MySQLBaseScorer):
+    """ Generates scores using a weighted average of all test methods.
 
     Cummulative score is determined by running each test method and averaging
     the resulting scores along with their respective weights.
 
+    The weighting is determined using the ``score_map`` attribute, which is
+    grader payload-configurable by passing in a custom mapping to the
+    ``score_map`` grader payload argument.
+
+    If no custom mapping is provided, the ``DEFAULT_SCORE_MAP`` will be used.
+
     """
+
+    name = 'weighted'
 
     #: Maps scoring methods to weight contributed to overall score
     #: Can be overriden by passing an alternate ``score_map``
@@ -35,20 +69,35 @@ class MySQLScorer(object):
         'rows_match': 1
     }
 
-    def __init__(self, student_answer, student_results, grader_answer,
-                 grader_results, score_map=None):
-        self.student_answer = student_answer
-        self.student_results = student_results
-        self.grader_answer = grader_answer
-        self.grader_results = grader_results
+    def __init__(self, *args, **kwargs):
+        super(MySQLWeightedScorer, self).__init__(*args, **kwargs)
 
         self.score_map = self.DEFAULT_SCORE_MAP
-        if score_map:
-            if not isinstance(score_map, dict):
-                raise ValueError
 
-            # Merge scoring map with defaults
+        # Merge scoring map with defaults if a valid one was provided
+        score_map = self.payload.get("score_map", None)
+        score_map = self.parse_score_map(score_map)
+
+        if score_map:
             self.score_map = dict(self.score_map.items() + score_map.items())
+
+    def parse_score_map(self, score_map):
+        """ Parses the ``score_map`` value passed in the grader payload
+
+            :param str score_map: a valid JSON string that maps scoring
+                                  functions to their respective weights.
+            :returns: a :class:`dict`, or ``None`` if ``score_map`` could
+                      not be parsed.
+
+        """
+        score_dict = None
+
+        if score_map:
+            try:
+                score_dict = json.loads(score_map)
+            except (TypeError, ValueError):
+                log.exception("Could not parse score map: %s", score_map)
+        return score_dict
 
     def score(self):
         """ Generates a score by running through all methods in the scoring map """
@@ -81,14 +130,6 @@ class MySQLScorer(object):
         score = numpy.asscalar(score)
 
         return score, messages
-
-    def rows_match(self):
-        """ Perscribes points for matching rows """
-
-        msg = ""
-        score = rows_match(self.student_results[1], self.grader_results[1])
-
-        return score, msg
 
 
 def rows_match(student_rows, grader_rows):
