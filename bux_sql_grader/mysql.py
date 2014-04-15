@@ -195,7 +195,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
                 # Whether or not to upload grader results for incorrect answers
                 # TODO: False for now pending discussion with course instructor
-                upload_grader_results = payload.get("upload_grader_results", True)
+                upload_grader_results = payload.get("upload_grader_results", False)
 
                 # Result file name
                 filename = payload.get("filename", self.DEFAULT_S3_FILENAME)
