@@ -73,9 +73,6 @@ class TestMySQLEvaluator(unittest.TestCase):
     def test_evaluate(self, mock_s3):
         pass
 
-    def test_grade_results(self, mock_s3):
-        pass
-
     def test_upload_results(self, mock_s3):
         pass
 
