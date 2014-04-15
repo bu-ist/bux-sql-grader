@@ -15,6 +15,7 @@ MYSQL_CONFIG = {
     "passwd": "root",
     "database": "foo",
     "port": 3306,
+    "timeout": 10
 }
 
 S3_CONFIG = {
@@ -48,6 +49,7 @@ class TestMySQLEvaluator(unittest.TestCase):
                                            MYSQL_CONFIG["passwd"],
                                            'foo',
                                            MYSQL_CONFIG["port"],
+                                           connect_timeout=10
                                            )
 
     @patch('bux_sql_grader.mysql.MySQLdb', autospec=True)
@@ -69,9 +71,6 @@ class TestMySQLEvaluator(unittest.TestCase):
         self.assertEquals(DUMMY_QUERY['result'], results)
 
     def test_evaluate(self, mock_s3):
-        pass
-
-    def test_grade_results(self, mock_s3):
         pass
 
     def test_upload_results(self, mock_s3):
