@@ -7,8 +7,8 @@
 """
 
 import csv
-import json
 import logging
+import sys
 
 import MySQLdb
 from MySQLdb import OperationalError, Warning, Error
@@ -111,6 +111,8 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
         """ An evaluator class that handles SQL problems. """
 
         name = "mysql"
+
+        DEFAULT_SCORING_CLASS = "MySQLWeightedScorer"
 
         def __init__(self, database, host, user, passwd, port=3306, *args,
                      **kwargs):
@@ -225,9 +227,20 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                           grader_results, payload):
             """ Compares student and grader responses to generate a score """
 
-            scorer = MySQLWeightedScorer(student_answer, student_results,
-                                         grader_answer, grader_results,
-                                         payload)
+            # Pull scoring class from grader payload, falling back to default
+            score_class = payload.get("scoring_class",
+                                      self.DEFAULT_SCORING_CLASS)
+            mod = sys.modules[__name__]
+            try:
+                Scorer = getattr(mod, score_class)
+            except AttributeError:
+                log.warning("Could not load scoring class: %s", score_class)
+                Scorer = MySQLWeightedScorer
+
+            # Generate a score
+            scorer = Scorer(student_answer, student_results,
+                            grader_answer, grader_results,
+                            payload)
             score, messages = scorer.score()
             correct = (score == 1)
             return correct, score, messages
