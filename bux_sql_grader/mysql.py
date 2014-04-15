@@ -8,6 +8,7 @@
 
 import csv
 import logging
+import os
 
 import MySQLdb
 from MySQLdb import OperationalError, Warning, Error
@@ -54,7 +55,7 @@ INCORRECT_QUERY = Template("""
 </div>""")
 
 DOWNLOAD_MESSAGE = Template("""
-<p>Download your full results as CSV: <a href="$url">$filename</a></p>
+<p>$message <a href="$url">$filename</a></p>
 """)
 
 UPLOAD_FAILED_MESSAGE = """
@@ -79,21 +80,20 @@ class S3UploaderMixin(object):
         self.aws_access_key = aws_access_key
         self.aws_secret_key = aws_secret_key
 
-    def upload_to_s3(self, contents, path, name=None):
+    def upload_to_s3(self, contents, path):
         """Upload submission results to S3
 
         TODO:
             - Use query_auth=False for `generate_url` if bucket is public
 
         """
-        name = name or self.DEFAULT_S3_FILENAME
 
         try:
             s3 = S3Connection(self.aws_access_key, self.aws_secret_key)
             bucket = s3.get_bucket(self.s3_bucket, validate=False)
 
-            keyname = "{prefix}/{path}/{name}".format(prefix=self.s3_prefix,
-                                                      path=path, name=name)
+            keyname = "{prefix}/{path}".format(prefix=self.s3_prefix,
+                                               path=path)
             key = Key(bucket, keyname)
             key.set_contents_from_string(contents, replace=True)
             s3_url = key.generate_url(60*60*24)
@@ -183,14 +183,45 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 response = self.build_response(True, 1, stu_results,
                                                row_limit)
 
-            # Upload student results to S3 if student query returned any rows
-            # Append the download link to the response message on success.
-            if upload_results and stu_results[1]:
-                key = header["submission_key"]
+            # Upload results CSV to S3
+            # Appends the download link(s) to the response message on success.
+            # Appends a failure notice if the upload was unable to complete.
+            if upload_results:
+                result_links = []
+
+                # Whether or not to upload grader results for incorrect answers
+                # TODO: False for now pending discussion with course instructor
+                upload_grader_results = payload.get("upload_grader_results", True)
+
+                # Result file name
                 filename = payload.get("filename", self.DEFAULT_S3_FILENAME)
-                download_link = self.upload_results(stu_results, key, filename)
-                if download_link:
-                    response["msg"] += download_link
+
+                # Store results by their pull key (hash of pull time and ID)
+                key = header["submission_key"]
+
+                # Ensure student query generated result rows
+                if stu_results[1]:
+                    # Prefix filename if student response was incorrect
+                    stu_filename = filename
+                    if not response['correct']:
+                        stu_filename = "incorrect-" + filename
+                    stu_path = os.path.join(key, stu_filename)
+                    stu_link = self.upload_results(stu_results, stu_path,
+                                          "Download student results CSV:")
+                    result_links.append(stu_link)
+
+                # Upload grader results as well
+                if upload_grader_results and grader_results[1]:
+                    if not response['correct']:
+                        inst_filename = "instructor-" + filename
+                        inst_path = os.path.join(key, inst_filename)
+                        inst_link = self.upload_results(grader_results, inst_path,
+                                                "Download instructor results CSV:")
+                        result_links.append(inst_link)
+
+                # Append download links
+                if len(result_links):
+                    response["msg"] += "\n".join(result_links)
 
             # Ensure the message is LMS-ready
             response["msg"] = self.sanitize_message(response["msg"])
@@ -229,13 +260,28 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 return True, 1
             return False, 0
 
-        def upload_results(self, results, path, filename):
-            """ Upload student results CSV """
+        def upload_results(self, results, path, message=None):
+            """ Upload query results CSV to Amazon S3
+
+                :param tuple results: query results for upload
+                :param str path: bucket path
+                :param str message: text to display before download link
+                :return: link text on successful upload, failure message if
+                         s3 upload failed
+
+            """
+            if not message:
+                message = "Download query results (CSV):"
+
+            # Convert result rows to CSV
             csv_results = self.csv_results(results)
 
-            s3_url = self.upload_to_s3(csv_results, path, filename)
+            # Upload to S3
+            s3_url = self.upload_to_s3(csv_results, path)
             if s3_url:
-                context = {"url": s3_url, "filename": filename}
+                filename = os.path.basename(path)
+                context = {"url": s3_url, "filename": filename,
+                           "message": message}
                 download_link = DOWNLOAD_MESSAGE.substitute(context)
             else:
                 download_link = UPLOAD_FAILED_MESSAGE
