@@ -16,7 +16,9 @@ Classes
 
 Scoring
 -------
-.. autoclass:: bux_sql_grader.scoring.MySQLScorer
+.. autoclass:: bux_sql_grader.scoring.MySQLRubricScorer
+   :members:
+.. autoclass:: bux_sql_grader.scoring.MySQLBaseScorer
    :members:
 
 Exceptions

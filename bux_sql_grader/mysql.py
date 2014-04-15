@@ -8,7 +8,6 @@
 
 import csv
 import logging
-import sys
 
 import MySQLdb
 from MySQLdb import OperationalError, Warning, Error
@@ -22,7 +21,7 @@ from boto.s3.key import Key
 from bux_grader_framework import BaseEvaluator
 from bux_grader_framework.exceptions import ImproperlyConfiguredGrader
 
-from .scoring import MySQLWeightedScorer
+from .scoring import MySQLRubricScorer
 
 
 log = logging.getLogger(__file__)
@@ -112,8 +111,6 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
         name = "mysql"
 
-        DEFAULT_SCORING_CLASS = "MySQLWeightedScorer"
-
         def __init__(self, database, host, user, passwd, port=3306, *args,
                      **kwargs):
             self.database = database
@@ -175,8 +172,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 correct, score, messages = self.grade_results(student_response,
                                                               stu_results,
                                                               grader_answer,
-                                                              grader_results,
-                                                              payload)
+                                                              grader_results)
                 response = self.build_response(correct, score, messages,
                                                stu_results, grader_results,
                                                row_limit)
@@ -224,23 +220,12 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             return cols, rows
 
         def grade_results(self, student_answer, student_results, grader_answer,
-                          grader_results, payload):
+                          grader_results):
             """ Compares student and grader responses to generate a score """
 
-            # Pull scoring class from grader payload, falling back to default
-            score_class = payload.get("scoring_class",
-                                      self.DEFAULT_SCORING_CLASS)
-            mod = sys.modules[__name__]
-            try:
-                Scorer = getattr(mod, score_class)
-            except AttributeError:
-                log.warning("Could not load scoring class: %s", score_class)
-                Scorer = MySQLWeightedScorer
-
             # Generate a score
-            scorer = Scorer(student_answer, student_results,
-                            grader_answer, grader_results,
-                            payload)
+            scorer = MySQLRubricScorer(student_answer, student_results,
+                                       grader_answer, grader_results)
             score, messages = scorer.score()
             correct = (score == 1)
             return correct, score, messages

@@ -31,16 +31,6 @@ DUMMY_QUERY = {
     "result": (['yearID', 'HR'], ((2010L, 54L), (2010L, 42L), (2010L, 39L), (2010L, 38L), (2010L, 38L), (2010L, 37L), (2010L, 34L), (2010L, 33L), (2010L, 33L), (2010L, 32L)))
 }
 
-CORRECT_RESULT = {
-    "args": ("SELECT yearID, HR FROM Batting WHERE yearID = '2010' ORDER BY HR DESC LIMIT 10", (['yearID', 'HR'], ((2010L, 54L), (2010L, 42L), (2010L, 39L), (2010L, 38L), (2010L, 38L), (2010L, 37L), (2010L, 34L), (2010L, 33L), (2010L, 33L), (2010L, 32L))), "SELECT yearID, HR FROM Batting WHERE yearID = '2010' ORDER BY HR DESC LIMIT 10", (['yearID', 'HR'], ((2010L, 54L), (2010L, 42L), (2010L, 39L), (2010L, 38L), (2010L, 38L), (2010L, 37L), (2010L, 34L), (2010L, 33L), (2010L, 33L), (2010L, 32L))), {}),
-    "score": (True, 1.0, [])
-}
-
-INCORRECT_RESULT = {
-    "args": ("SELECT yearID, HR FROM Batting WHERE yearID = '2010' ORDER BY HR ASC LIMIT 10", (['yearID', 'HR'], ((2010L, 42L), (2010L, 54L), (2010L, 39L), (2010L, 38L), (2010L, 38L), (2010L, 37L), (2010L, 34L), (2010L, 33L), (2010L, 33L), (2010L, 32L))), "SELECT yearID, HR FROM Batting WHERE yearID = '2010' ORDER BY HR DESC LIMIT 10", (['yearID', 'HR'], ((2010L, 54L), (2010L, 42L), (2010L, 39L), (2010L, 38L), (2010L, 38L), (2010L, 37L), (2010L, 34L), (2010L, 33L), (2010L, 33L), (2010L, 32L))), {}),
-    "score": (False, 0, [])
-}
-
 
 @patch('bux_sql_grader.mysql.S3UploaderMixin', autospec=True)
 class TestMySQLEvaluator(unittest.TestCase):
@@ -80,14 +70,6 @@ class TestMySQLEvaluator(unittest.TestCase):
 
     def test_evaluate(self, mock_s3):
         pass
-
-    def test_grade_results(self, mock_s3):
-        score = self.grader.grade_results(*CORRECT_RESULT['args'])
-        self.assertEquals(CORRECT_RESULT['score'], score)
-
-    def test_grade_results_incorrect(self, mock_s3):
-        score = self.grader.grade_results(*INCORRECT_RESULT['args'])
-        self.assertEquals(INCORRECT_RESULT['score'], score)
 
     def test_upload_results(self, mock_s3):
         pass

@@ -1,7 +1,4 @@
-import json
 import logging
-
-import numpy
 
 log = logging.getLogger(__name__)
 
@@ -15,7 +12,6 @@ class MySQLBaseScorer(object):
     :param str grader_answer: the student query
     :param tuple grader_results: a two item tuple: (result columns,
                                   result rows)
-    :param dict payload: the grader payload submitted with the submission
     :returns: a two item tuple with score (float), message (str)
     :rtype: tuple
 
@@ -26,112 +22,184 @@ class MySQLBaseScorer(object):
     scoring algorothim.
 
     """
+
+    KEYWORDS = ["SELECT", "WHERE", "JOIN", "ORDER BY", "ASC", "DESC", "GROUP BY", "LIMIT"]
+
     def __init__(self, student_answer, student_results, grader_answer,
-                 grader_results, payload):
+                 grader_results):
         self.student_answer = student_answer
-        self.student_results = student_results
+        self.student_cols = student_results[0]
+        self.student_rows = student_results[1]
         self.grader_answer = grader_answer
-        self.grader_results = grader_results
-        self.payload = payload
+        self.grader_cols = grader_results[0]
+        self.grader_rows = grader_results[1]
+
+        self.missing_keywords = []
+        self._tests = []
 
     def score(self):
         """ Subclasses should implement the scoring algorithm """
         raise NotImplemented
 
-    def rows_match(self):
-        """ Perscribes points for matching rows """
+    def test_rows_match(self):
+        """ Do result rows match exactly? """
+        return self.student_rows == self.grader_rows
 
-        msg = ""
-        score = rows_match(self.student_results[1], self.grader_results[1])
+    def test_rows_match_unsorted(self):
+        """ Do result rows match if sort order is ignored?
 
-        return score, msg
+        First each row is indiviudally sorted, then the list of rows is sorted
+        Can return false passes (incorrectly guess that unsorted data matches)
 
-
-class MySQLWeightedScorer(MySQLBaseScorer):
-    """ Generates scores using a weighted average of all test methods.
-
-    Cummulative score is determined by running each test method and averaging
-    the resulting scores along with their respective weights.
-
-    The weighting is determined using the ``score_map`` attribute, which is
-    grader payload-configurable by passing in a custom mapping to the
-    ``score_map`` grader payload argument.
-
-    If no custom mapping is provided, the ``DEFAULT_SCORE_MAP`` will be used.
-
-    """
-
-    name = 'weighted'
-
-    #: Maps scoring methods to weight contributed to overall score
-    #: Can be overriden by passing an alternate ``score_map``
-    DEFAULT_SCORE_MAP = {
-        'rows_match': 1
-    }
-
-    def __init__(self, *args, **kwargs):
-        super(MySQLWeightedScorer, self).__init__(*args, **kwargs)
-
-        self.score_map = self.DEFAULT_SCORE_MAP
-
-        # Merge scoring map with defaults if a valid one was provided
-        score_map = self.payload.get("score_map", None)
-        score_map = self.parse_score_map(score_map)
-
-        if score_map:
-            self.score_map = dict(self.score_map.items() + score_map.items())
-
-    def parse_score_map(self, score_map):
-        """ Parses the ``score_map`` value passed in the grader payload
-
-            :param str score_map: a valid JSON string that maps scoring
-                                  functions to their respective weights.
-            :returns: a :class:`dict`, or ``None`` if ``score_map`` could
-                      not be parsed.
+        TODO: Optimize sorts using numpy
+        TODO: Improve accuracy by doing the same sorts on columns of data
 
         """
-        score_dict = None
+        sorted_grader_rows = sorted(sorted(row) for row in self.grader_rows)
+        sorted_student_rows = sorted(sorted(row) for row in self.student_rows)
 
-        if score_map:
-            try:
-                score_dict = json.loads(score_map)
-            except (TypeError, ValueError):
-                log.exception("Could not parse score map: %s", score_map)
-        return score_dict
+        return (sorted_grader_rows == sorted_student_rows)
+
+    def test_row_counts_match(self):
+        """ Do row counts match exactly? """
+        return (len(self.student_rows) == len(self.grader_rows))
+
+    def test_row_counts_close(self, threshold=.5):
+        """ Are row counts reasonbly close? """
+        return (abs(1.0 * len(self.student_rows) - len(self.grader_rows)) /
+                len(self.grader_rows)) <= threshold
+
+    def test_cols_match(self):
+        """ Do result columns match exactly? """
+        return (self.student_cols == self.grader_cols)
+
+    def test_cols_match_unsorted(self):
+        """ Do result columns match if sort order is ignored? """
+        return (sorted(self.student_cols) == sorted(self.grader_cols))
+
+    def test_col_counts_match(self):
+        """ Do column counts match exactly? """
+        return (len(self.student_cols) == len(self.grader_cols))
+
+    def test_col_counts_close(self, threshold=.5):
+        """ Are column counts reasonably close? """
+        return (abs(1.0 * len(self.student_cols) - len(self.grader_cols)) /
+                len(self.grader_cols)) <= threshold
+
+    def test_keywords_match(self):
+        """ Are SQL keywords in the grader query in the student response?
+
+        Builds a list of missing keywords for use when generating hints.
+
+        """
+        # TODO: Use sqlparse to make sure the keywords are placed correctly
+        for keyword in self.KEYWORDS:
+            if keyword in self.grader_answer.upper():
+                if keyword not in self.student_answer.upper():
+                    self.missing_keywords.append(keyword)
+        return (len(self.missing_keywords) == 0)
+
+    @property
+    def tests(self):
+        """ Returns callable test methods (methods prefixed with 'test_') """
+        if self._tests:
+            return self._tests
+
+        self._tests = []
+        attrs = [attr for attr in dir(self) if attr.startswith('test_')]
+        for name in attrs:
+            attr = getattr(self, name)
+            if hasattr(attr, '__call__'):
+                self._tests.append(attr)
+        return self._tests
+
+
+class MySQLRubricScorer(MySQLBaseScorer):
 
     def score(self):
-        """ Generates a score by running through all methods in the scoring map """
-        scores = []
-        weights = []
-        messages = []
+        """ Generate a score using a hard coded rubric approach """
+        results = {}
 
-        # Generate scores
-        for func, weight in self.score_map.iteritems():
-            if not hasattr(self, func):
-                log.error("Illegal scoring func: %s", func)
-                continue
+        # TODO: Don't run unneccesary tests, clearer test logic
+        for test in self.tests:
+            result = test()
+            results[test.__name__] = result
 
-            score_func = getattr(self, func)
-            score, msg = score_func()
+        # "Perfect"
+        if (results["test_rows_match"] and
+           results["test_cols_match"] and
+           results["test_keywords_match"]):
+            score = 1.0
 
-            # Build a list of scores and weights
-            # TODO: Use a tuple
-            scores.append(score)
-            weights.append(weight)
+        # "Really Close":
+        # - Columns are either out of order or named incorrectly
+        elif (results["test_rows_match_unsorted"] and
+              results["test_keywords_match"]):
+            score = .8
 
-            # Track any messages generated by the scoring method
-            if msg:
-                messages.append(msg)
+        # "Nice Try"
+        # - Row counts match but not unsorted contents (bad WHERE clause)
+        # - Too many / few rows (bad LIMIT)
+        elif (((results["test_cols_match_unsorted"] and
+                results["test_row_counts_close"]) or
+               (results["test_col_counts_match"] and
+                results["test_row_counts_match"]) or
+               (results["test_cols_match"])) and
+              results["test_keywords_match"]):
+            score = .6
 
-        # Calculate score based on weights
-        score = numpy.average(scores, weights=weights)
+        # "Decent Attempt"
+        # - Row and column counts are in the right ballpark
+        elif (results["test_row_counts_close"] and results["test_col_counts_close"]):
+            score = .4
 
-        # Convert to built-in float
-        score = numpy.asscalar(score)
+        # "Fail"
+        else:
+            score = .0
 
-        return score, messages
+        # Generate hints based on the test results
+        hints = self.generate_hints(results)
 
+        return score, hints
 
-def rows_match(student_rows, grader_rows):
-    """ Compares result rows for equality, returning a score between 0 - 1 """
-    return student_rows == grader_rows
+    def generate_hints(self, results):
+        """ Examines scoring results, building a list of hints for the student
+        depending on which tests passed.
+
+        """
+        hints = []
+
+        # Keyword hints
+        if not results["test_keywords_match"]:
+            hints.append("Missing SQL Keywords: %s" %
+                         ", ".join(self.missing_keywords))
+
+        # Row count hints
+        if not results["test_row_counts_match"]:
+            if len(self.student_rows) > len(self.grader_rows):
+                hints.append("Too many rows.")
+            else:
+                hints.append("Too few rows.")
+
+        # Column count hints
+        if not results["test_col_counts_match"]:
+            if len(self.student_cols) > len(self.grader_cols):
+                hints.append("Too many columns.")
+            else:
+                hints.append("Too few columns.")
+
+        # Column names / ordering
+        elif not results["test_cols_match_unsorted"]:
+            hints.append("Columns are named incorrectly.")
+
+        elif not results["test_cols_match"]:
+            hints.append("Columns are out of order.")
+
+        elif results["test_row_counts_match"] and not results["test_rows_match_unsorted"]:
+            hints.append("Incorrect column calculation")
+
+        # Row ordering
+        elif results["test_rows_match_unsorted"] and not results["test_rows_match"]:
+            hints.append("Rows are out of order.")
+
+        return hints
