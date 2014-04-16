@@ -10,8 +10,7 @@ import csv
 import logging
 import os
 
-import statsd
-statsd.Connection.set_defaults(host='10.0.2.2', port=8125, sample_rate=1, disabled=False)
+from statsd import statsd
 
 import MySQLdb
 from MySQLdb import OperationalError, Warning, Error
@@ -136,6 +135,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
             return db
 
+        @statsd.timer('bux_sql_grader.evaluate')
         def evaluate(self, submission):
             """ Evaluate SQL query problems
 
@@ -159,8 +159,6 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             response = {"correct": False, "score": 0, "msg": ""}
 
             # Evaluate the students response
-            timer = statsd.Timer('sabermetrics.mysql.execute_query')
-            timer.start()
             student_response = body["student_response"]
             try:
                 stu_results = self.execute_query(db, student_response)
@@ -168,30 +166,21 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 context = {"query": student_response, "error": e}
                 response["msg"] = INVALID_STUDENT_QUERY.substitute(context)
                 return response
-            finally:
-                timer.stop('student')
 
             # Evaluate the canonical grader answer (if present)
             grader_answer = payload.get("answer")
             if grader_answer:
-                timer = statsd.Timer('sabermetrics.mysql.execute_query')
-                timer.start()
                 try:
                     grader_results = self.execute_query(db, grader_answer)
                 except InvalidQuery as e:
                     context = {"query": grader_answer, "error": e}
                     response["msg"] = INVALID_GRADER_QUERY.substitute(context)
                     return response
-                finally:
-                    timer.stop('grader')
 
-                timer = statsd.Timer('sabermetrics.mysql')
-                timer.start()
                 correct, score, messages = self.grade_results(student_response,
                                                               stu_results,
                                                               grader_answer,
                                                               grader_results)
-                timer.stop('grade_results')
                 response = self.build_response(correct, score, messages,
                                                stu_results, grader_results,
                                                row_limit)
@@ -205,8 +194,6 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             # Appends the download link(s) to the response message on success.
             # Appends a failure notice if the upload was unable to complete.
             if upload_results:
-                timer = statsd.Timer('sabermetrics.mysql')
-                timer.start()
                 result_links = []
 
                 # Whether or not to upload grader results for incorrect answers
@@ -243,13 +230,12 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 if len(result_links):
                     response["msg"] += "\n".join(result_links)
 
-                timer.stop('s3_upload')
-
             # Ensure the message is LMS-ready
             response["msg"] = self.sanitize_message(response["msg"])
 
             return response
 
+        @statsd.timer('bux_sql_grader.execute_query')
         def execute_query(self, db, stmt):
             """ Execute the SQL query
 
@@ -273,6 +259,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 raise InvalidQuery("MySQL Error {}: {}".format(code, msg))
             return cols, rows
 
+        @statsd.timer('bux_sql_grader.grade_results')
         def grade_results(self, student_answer, student_results, grader_answer,
                           grader_results):
             """ Compares student and grader responses to generate a score """
@@ -284,6 +271,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             correct = (score == 1)
             return correct, score, messages
 
+        @statsd.timer('bux_sql_grader.upload_results')
         def upload_results(self, results, path, message=None):
             """ Upload query results CSV to Amazon S3
 
