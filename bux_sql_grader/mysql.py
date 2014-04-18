@@ -135,7 +135,6 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
             return db
 
-        @statsd.timer('bux_sql_grader.evaluate')
         def evaluate(self, submission):
             """ Evaluate SQL query problems
 
@@ -235,7 +234,6 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
             return response
 
-        @statsd.timer('bux_sql_grader.execute_query')
         def execute_query(self, db, stmt):
             """ Execute the SQL query
 
@@ -245,6 +243,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 :raises InvalidQuery: if the query could not be executed
 
             """
+            timer = statsd.timer('bux_sql_grader.execute_query').start()
             cursor = db.cursor()
             try:
                 cursor.execute(stmt)
@@ -257,21 +256,23 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 msg = e.args[1]
                 code = e.args[0]
                 raise InvalidQuery("MySQL Error {}: {}".format(code, msg))
+            finally:
+                timer.stop()
             return cols, rows
 
-        @statsd.timer('bux_sql_grader.grade_results')
         def grade_results(self, student_answer, student_results, grader_answer,
                           grader_results):
             """ Compares student and grader responses to generate a score """
 
             # Generate a score
+            timer = statsd.timer('bux_sql_grader.grade_results').start()
             scorer = MySQLRubricScorer(student_answer, student_results,
                                        grader_answer, grader_results)
             score, messages = scorer.score()
             correct = (score == 1)
+            timer.stop()
             return correct, score, messages
 
-        @statsd.timer('bux_sql_grader.upload_results')
         def upload_results(self, results, path, message=None):
             """ Upload query results CSV to Amazon S3
 
@@ -282,6 +283,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                          s3 upload failed
 
             """
+            timer = statsd.timer('bux_sql_grader.upload_results').start()
             if not message:
                 message = "Download query results (CSV):"
 
@@ -298,6 +300,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             else:
                 download_link = UPLOAD_FAILED_MESSAGE
 
+            timer.stop()
             return download_link
 
         def build_response(self, correct, score, hints, student_results,
