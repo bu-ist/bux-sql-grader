@@ -6,8 +6,10 @@
 
 """
 
+import copy
 import csv
 import logging
+import os
 
 import MySQLdb
 from MySQLdb import OperationalError, Warning, Error
@@ -20,6 +22,8 @@ from boto.s3.key import Key
 
 from bux_grader_framework import BaseEvaluator
 from bux_grader_framework.exceptions import ImproperlyConfiguredGrader
+
+from .scoring import MySQLRubricScorer
 
 
 log = logging.getLogger(__file__)
@@ -63,7 +67,7 @@ $hint_list
 """)
 
 DOWNLOAD_MESSAGE = Template("""
-<p>Download your full results as CSV: <a href="$url">$filename</a></p>
+<p>$message <a href="$url">$filename</a></p>
 """)
 
 UPLOAD_FAILED_MESSAGE = """
@@ -88,21 +92,20 @@ class S3UploaderMixin(object):
         self.aws_access_key = aws_access_key
         self.aws_secret_key = aws_secret_key
 
-    def upload_to_s3(self, contents, path, name=None):
+    def upload_to_s3(self, contents, path):
         """Upload submission results to S3
 
         TODO:
             - Use query_auth=False for `generate_url` if bucket is public
 
         """
-        name = name or self.DEFAULT_S3_FILENAME
 
         try:
             s3 = S3Connection(self.aws_access_key, self.aws_secret_key)
-            bucket = s3.create_bucket(self.s3_bucket)
+            bucket = s3.get_bucket(self.s3_bucket, validate=False)
 
-            keyname = "{prefix}/{path}/{name}".format(prefix=self.s3_prefix,
-                                                      path=path, name=name)
+            keyname = "{prefix}/{path}".format(prefix=self.s3_prefix,
+                                               path=path)
             key = Key(bucket, keyname)
             key.set_contents_from_string(contents, replace=True)
             s3_url = key.generate_url(60*60*24)
@@ -117,6 +120,15 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
         """ An evaluator class that handles SQL problems. """
 
         name = "mysql"
+
+        #: Default grader payload values
+        DEFAULT_PAYLOAD = {
+            "database": None,
+            "answer": None,
+            "row_limit": 10,
+            "filename": S3UploaderMixin.DEFAULT_S3_FILENAME,
+            "upload_results": True
+        }
 
         def __init__(self, database, host, user, passwd, port=3306, timeout=10,
                      *args, **kwargs):
@@ -149,14 +161,9 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             """
             header = submission["xqueue_header"]
             body = submission["xqueue_body"]
-            payload = body["grader_payload"]
+            payload = self.parse_grader_payload(body["grader_payload"])
 
-            database = payload.get("database", self.database)
-
-            row_limit = payload.get("row_limit", None)
-            row_limit = self.sanitize_row_limit(row_limit)
-
-            db = self.db_connect(database)
+            db = self.db_connect(payload["database"])
 
             response = {"correct": False, "score": 0, "msg": ""}
 
@@ -170,34 +177,70 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 return response
 
             # Evaluate the canonical grader answer (if present)
-            grader_answer = payload.get("answer")
-            if grader_answer:
+            if payload["answer"]:
                 try:
-                    grader_results = self.execute_query(db, grader_answer)
+                    grader_results = self.execute_query(db, payload["answer"])
                 except InvalidQuery as e:
-                    context = {"query": grader_answer, "error": e}
+                    context = {"query": payload["answer"], "error": e}
                     response["msg"] = INVALID_GRADER_QUERY.substitute(context)
                     return response
 
-                correct, score = self.grade_results(stu_results,
-                                                    grader_results)
-                response = self.build_response(correct, score,
+                correct, score, messages = self.grade_results(student_response,
+                                                              stu_results,
+                                                              payload["answer"],
+                                                              grader_results)
+                response = self.build_response(correct, score, messages,
                                                stu_results, grader_results,
-                                               row_limit)
+                                               payload["row_limit"])
             else:
                 # If no grader answer was found in the payload this is a
                 # sandbox query. These are always correct.
-                response = self.build_response(True, 1, stu_results,
-                                               row_limit)
+                response = self.build_response(correct=True,
+                                               score=1,
+                                               hints=[],
+                                               student_results=stu_results,
+                                               grader_results=None,
+                                               row_limit=payload["row_limit"])
 
-            # Upload student results to S3 if student query returned any rows
-            # Append the download link to the response message on success.
-            if stu_results[1]:
+            # Upload results CSV to S3
+            # Appends the download link(s) to the response message on success.
+            # Appends a failure notice if the upload was unable to complete.
+            if payload["upload_results"]:
+                result_links = []
+
+                # Whether or not to upload grader results for incorrect answers
+                # TODO: False for now pending discussion with course instructor
+                upload_grader_results = payload.get("upload_grader_results", False)
+
+                # Result file name
+                filename = payload["filename"]
+
+                # Store results by their pull key (hash of pull time and ID)
                 key = header["submission_key"]
-                filename = payload.get("filename", self.DEFAULT_S3_FILENAME)
-                download_link = self.upload_results(stu_results, key, filename)
-                if download_link:
-                    response["msg"] += download_link
+
+                # Ensure student query generated result rows
+                if stu_results[1]:
+                    # Prefix filename if student response was incorrect
+                    stu_filename = filename
+                    if not response['correct']:
+                        stu_filename = "incorrect-" + filename
+                    stu_path = os.path.join(key, stu_filename)
+                    stu_link = self.upload_results(stu_results, stu_path,
+                                          "Download student results CSV:")
+                    result_links.append(stu_link)
+
+                # Upload grader results as well
+                if upload_grader_results and grader_results[1]:
+                    if not response['correct']:
+                        inst_filename = "instructor-" + filename
+                        inst_path = os.path.join(key, inst_filename)
+                        inst_link = self.upload_results(grader_results, inst_path,
+                                                "Download instructor results CSV:")
+                        result_links.append(inst_link)
+
+                # Append download links
+                if len(result_links):
+                    response["msg"] += "\n".join(result_links)
 
             # Ensure the message is LMS-ready
             response["msg"] = self.sanitize_message(response["msg"])
@@ -227,29 +270,46 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 raise InvalidQuery("MySQL Error {}: {}".format(code, msg))
             return cols, rows
 
-        def grade_results(self, stu_results, grader_results):
+        def grade_results(self, student_answer, student_results, grader_answer,
+                          grader_results):
             """ Compares student and grader responses to generate a score """
-            stu_cols, stu_rows = stu_results
-            ans_cols, ans_rows = grader_results
 
-            if stu_rows == ans_rows:
-                return True, 1
-            return False, 0
+            # Generate a score
+            scorer = MySQLRubricScorer(student_answer, student_results,
+                                       grader_answer, grader_results)
+            score, messages = scorer.score()
+            correct = (score == 1)
+            return correct, score, messages
 
-        def upload_results(self, results, path, filename):
-            """ Upload student results CSV """
+        def upload_results(self, results, path, message=None):
+            """ Upload query results CSV to Amazon S3
+
+                :param tuple results: query results for upload
+                :param str path: bucket path
+                :param str message: text to display before download link
+                :return: link text on successful upload, failure message if
+                         s3 upload failed
+
+            """
+            if not message:
+                message = "Download query results (CSV):"
+
+            # Convert result rows to CSV
             csv_results = self.csv_results(results)
 
-            s3_url = self.upload_to_s3(csv_results, path, filename)
+            # Upload to S3
+            s3_url = self.upload_to_s3(csv_results, path)
             if s3_url:
-                context = {"url": s3_url, "filename": filename}
+                filename = os.path.basename(path)
+                context = {"url": s3_url, "filename": filename,
+                           "message": message}
                 download_link = DOWNLOAD_MESSAGE.substitute(context)
             else:
                 download_link = UPLOAD_FAILED_MESSAGE
 
             return download_link
 
-        def build_response(self, correct, score, student_results,
+        def build_response(self, correct, score, hints, student_results,
                            grader_results=None, row_limit=None):
             """ Build a message """
 
@@ -264,6 +324,13 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             else:
                 context = {"results": student_html}
                 message = CORRECT_QUERY.substitute(context)
+
+            if hints:
+                message += "<strong>Hints:</strong>"
+                message += "<ul>"
+                for hint in hints:
+                    message += '<li>' + hint + '</li>'
+                message += "</ul>"
 
             response["msg"] = message
             return response
@@ -317,6 +384,25 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             return "<small>Showing %d of %s row%s.</small>" % (displayed, total,
                                                        "s"[total == 1:])
 
+        def parse_grader_payload(self, payload):
+            """ Parses the grader payload JSON object.
+
+            Missing keys will be filled in from the ``DEFAULT_PAYLOAD`` dict.
+
+            """
+            defaults = copy.deepcopy(self.DEFAULT_PAYLOAD)
+
+            # Update class defaults with instance values
+            defaults["database"] = self.database
+
+            # Merge defaults with passed in values
+            payload = dict(defaults.items() + payload.items())
+
+            # Payload sanitization
+            payload["row_limit"] = self.sanitize_row_limit(payload["row_limit"])
+
+            return payload
+
         def sanitize_row_limit(self, limit):
             """ Cleans the ``row_limit`` value passed in the grader payload """
             try:
@@ -347,3 +433,12 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             message = "<div>" + message + "</div>"
 
             return message
+
+        def status(self):
+            """ Assert that a DB connection can be made """
+            try:
+                self.db_connect()
+            except ImproperlyConfiguredGrader:
+                return False
+            else:
+                return True
