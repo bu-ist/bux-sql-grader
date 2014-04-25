@@ -211,6 +211,35 @@ class TestMySQLEvaluator(unittest.TestCase):
     def test_build_response(self, mock_db):
         pass
 
+    def test_parse_grader_payload(self, mock_db):
+        payload = DUMMY_SUBMISSION['xqueue_body']['grader_payload']
+
+        self.assertEquals(payload, self.grader.parse_grader_payload(payload))
+
+    def test_parse_grader_payload_defaults(self, mock_db):
+        payload = {}
+        default = copy.deepcopy(self.grader.DEFAULT_PAYLOAD)
+
+        # Will update default payload to include instance database
+        self.grader.database = default["database"] = "bar"
+
+        parsed = self.grader.parse_grader_payload(payload)
+        self.assertEquals(default, parsed)
+
+    def test_parse_grader_payload_overrides_defaults(self, mock_db):
+        payload = DUMMY_SUBMISSION['xqueue_body']['grader_payload']
+        payload["database"] = "baz"
+        payload["filename"] = "bar.csv"
+
+        self.assertEquals(payload, self.grader.parse_grader_payload(payload))
+
+    def test_parse_grader_payload_sanitizes_row_limit(self, mock_db):
+        payload = DUMMY_SUBMISSION['xqueue_body']['grader_payload']
+        payload["row_limit"] = "foo"
+
+        parsed = self.grader.parse_grader_payload(payload)
+        self.assertEquals(None, parsed["row_limit"])
+
     def test_sanitize_row_limit(self, mock_db):
         pass
 

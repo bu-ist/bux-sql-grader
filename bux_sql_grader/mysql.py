@@ -6,6 +6,7 @@
 
 """
 
+import copy
 import csv
 import logging
 import os
@@ -111,6 +112,15 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
         name = "mysql"
 
+        #: Default grader payload values
+        DEFAULT_PAYLOAD = {
+            "database": None,
+            "answer": None,
+            "row_limit": 10,
+            "filename": S3UploaderMixin.DEFAULT_S3_FILENAME,
+            "upload_results": True
+        }
+
         def __init__(self, database, host, user, passwd, port=3306, timeout=10,
                      *args, **kwargs):
             self.database = database
@@ -142,16 +152,9 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             """
             header = submission["xqueue_header"]
             body = submission["xqueue_body"]
-            payload = body["grader_payload"]
+            payload = self.parse_grader_payload(body["grader_payload"])
 
-            database = payload.get("database", self.database)
-
-            row_limit = payload.get("row_limit", None)
-            row_limit = self.sanitize_row_limit(row_limit)
-
-            upload_results = payload.get("upload_results", True)
-
-            db = self.db_connect(database)
+            db = self.db_connect(payload["database"])
 
             response = {"correct": False, "score": 0, "msg": ""}
 
@@ -165,22 +168,21 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 return response
 
             # Evaluate the canonical grader answer (if present)
-            grader_answer = payload.get("answer")
-            if grader_answer:
+            if payload["answer"]:
                 try:
-                    grader_results = self.execute_query(db, grader_answer)
+                    grader_results = self.execute_query(db, payload["answer"])
                 except InvalidQuery as e:
-                    context = {"query": grader_answer, "error": e}
+                    context = {"query": payload["answer"], "error": e}
                     response["msg"] = INVALID_GRADER_QUERY.substitute(context)
                     return response
 
                 correct, score, messages = self.grade_results(student_response,
                                                               stu_results,
-                                                              grader_answer,
+                                                              payload["answer"],
                                                               grader_results)
                 response = self.build_response(correct, score, messages,
                                                stu_results, grader_results,
-                                               row_limit)
+                                               payload["row_limit"])
             else:
                 # If no grader answer was found in the payload this is a
                 # sandbox query. These are always correct.
@@ -189,12 +191,12 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                                                hints=[],
                                                student_results=stu_results,
                                                grader_results=None,
-                                               row_limit=row_limit)
+                                               row_limit=payload["row_limit"])
 
             # Upload results CSV to S3
             # Appends the download link(s) to the response message on success.
             # Appends a failure notice if the upload was unable to complete.
-            if upload_results:
+            if payload["upload_results"]:
                 result_links = []
 
                 # Whether or not to upload grader results for incorrect answers
@@ -202,7 +204,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 upload_grader_results = payload.get("upload_grader_results", False)
 
                 # Result file name
-                filename = payload.get("filename", self.DEFAULT_S3_FILENAME)
+                filename = payload["filename"]
 
                 # Store results by their pull key (hash of pull time and ID)
                 key = header["submission_key"]
@@ -372,6 +374,25 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
         def result_stats(self, displayed, total):
             return "<p>Showing %d of %s row%s.</p>" % (displayed, total,
                                                        "s"[total == 1:])
+
+        def parse_grader_payload(self, payload):
+            """ Parses the grader payload JSON object.
+
+            Missing keys will be filled in from the ``DEFAULT_PAYLOAD`` dict.
+
+            """
+            defaults = copy.deepcopy(self.DEFAULT_PAYLOAD)
+
+            # Update class defaults with instance values
+            defaults["database"] = self.database
+
+            # Merge defaults with passed in values
+            payload = dict(defaults.items() + payload.items())
+
+            # Payload sanitization
+            payload["row_limit"] = self.sanitize_row_limit(payload["row_limit"])
+
+            return payload
 
         def sanitize_row_limit(self, limit):
             """ Cleans the ``row_limit`` value passed in the grader payload """
