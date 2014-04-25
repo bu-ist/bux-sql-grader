@@ -184,8 +184,12 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             else:
                 # If no grader answer was found in the payload this is a
                 # sandbox query. These are always correct.
-                response = self.build_response(True, 1, '',
-                                               stu_results, row_limit)
+                response = self.build_response(correct=True,
+                                               score=1,
+                                               hints=[],
+                                               student_results=stu_results,
+                                               grader_results=None,
+                                               row_limit=row_limit)
 
             # Upload results CSV to S3
             # Appends the download link(s) to the response message on success.
