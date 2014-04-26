@@ -109,9 +109,7 @@ class TestMySQLEvaluator(unittest.TestCase):
         self.grader.upload_results = MagicMock(return_value=download_link)
 
         # Build response using grader API
-        expected = self.grader.build_response(True, 1.0, [], results, results, row_limit)
-        expected["msg"] += download_link
-        expected["msg"] = self.grader.sanitize_message(expected["msg"])
+        expected = self.grader.build_response(True, 1.0, [], results, results, row_limit, download_link)
 
         self.assertEquals(expected, self.grader.evaluate(DUMMY_SUBMISSION))
 
@@ -186,7 +184,6 @@ class TestMySQLEvaluator(unittest.TestCase):
         self.grader.upload_results = MagicMock(return_value='')
 
         expected = self.grader.build_response(True, 1.0, [], results)
-        expected["msg"] = self.grader.sanitize_message(expected["msg"])
         actual = self.grader.evaluate(submission)
 
         self.assertEquals(expected, actual)

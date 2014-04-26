@@ -30,44 +30,41 @@ log = logging.getLogger(__file__)
 
 INVALID_STUDENT_QUERY = Template("""
 <div class="error">
-    <h4 style="color: red">Could not execute query:</h4>
-    <pre><code>$query</code></pre>
-    <h4 style="color: red">Error:</h4>
+    <h4 style="color:#b40">Could not execute query:</h4>
     <pre><code>$error</code></pre>
 </div>""")
 
 INVALID_GRADER_QUERY = Template("""
 <div class="error">
-    <h4 style="color: red">Invalid grader query:</h4>
-    <pre><code>$query</code></pre>
-    <p>Please report this issue to the course staff.</p>
-    <h4 style="color: red">Error:</h4>
+    <h4 style="color:#b40">Could not execute grader query:</h4>
     <pre><code>$error</code></pre>
+    <p>Please report this issue to the course staff.</p>
 </div>""")
 
 CORRECT_QUERY = Template("""
 <div class="correct">
-    <h3>Query results:</h3>
-    $results
+    <small style="float:right">$download_link</small>
+    <h3>Query Results</h3>
+    $student_results
 </div>""")
 
 INCORRECT_QUERY = Template("""
 <div class="error">
-    <h3>Your Results</h3>
-    $actual
-    <h3>Expected Results</h3>
-    $expected
+    <div style="float:left;width:48%;">
+        <small style="float:right">$download_link</small>
+        <h3>Your Results</h3>
+        $student_results
+    </div>
+    <div style="float:right; width:48%">
+        <h3>Expected Results</h3>
+        $grader_results
+    </div>
+    <div style="clear:both">$hints</div>
 </div>""")
 
-HINTS = Template("""
-<h3 style="color: red">Hints:</h3>
-<ul style="color: red">
-$hint_list
-</ul>
-""")
-
-DOWNLOAD_MESSAGE = Template("""
-<p>$message <a href="$url">$filename</a></p>
+DOWNLOAD_ICON_SRC = "data:image/png;base64,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"
+DOWNLOAD_LINK = Template("""
+<a href="$url"><img src="$icon_src" height="16" width="16" style="vertical-align:sub" /> $message</a>
 """)
 
 UPLOAD_FAILED_MESSAGE = """
@@ -131,13 +128,20 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
         }
 
         def __init__(self, database, host, user, passwd, port=3306, timeout=10,
-                     *args, **kwargs):
+                     download_icon=None, *args, **kwargs):
             self.database = database
             self.host = host
             self.user = user
             self.passwd = passwd
             self.port = port
             self.timeout = timeout
+
+            # Path to CSV download icon
+            if download_icon:
+                self.download_icon = download_icon
+            else:
+                # data-uri fallback
+                self.download_icon = DOWNLOAD_ICON_SRC
 
             super(MySQLEvaluator, self).__init__(*args, **kwargs)
 
@@ -170,80 +174,61 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             # Evaluate the students response
             student_response = body["student_response"]
             try:
-                stu_results = self.execute_query(db, student_response)
+                student_results = self.execute_query(db, student_response)
             except InvalidQuery as e:
-                context = {"query": student_response, "error": e}
+                context = {"error": e}
                 response["msg"] = INVALID_STUDENT_QUERY.substitute(context)
                 return response
 
             # Evaluate the canonical grader answer (if present)
-            if payload["answer"]:
+            grader_response = payload["answer"]
+            if grader_response:
                 try:
-                    grader_results = self.execute_query(db, payload["answer"])
+                    grader_results = self.execute_query(db, grader_response)
                 except InvalidQuery as e:
-                    context = {"query": payload["answer"], "error": e}
+                    context = {"error": e}
                     response["msg"] = INVALID_GRADER_QUERY.substitute(context)
                     return response
 
-                correct, score, messages = self.grade_results(student_response,
-                                                              stu_results,
-                                                              payload["answer"],
-                                                              grader_results)
-                response = self.build_response(correct, score, messages,
-                                               stu_results, grader_results,
-                                               payload["row_limit"])
+                correct, score, hints = self.grade_results(student_response,
+                                                           student_results,
+                                                           grader_response,
+                                                           grader_results)
             else:
                 # If no grader answer was found in the payload this is a
                 # sandbox query. These are always correct.
-                response = self.build_response(correct=True,
-                                               score=1,
-                                               hints=[],
-                                               student_results=stu_results,
-                                               grader_results=None,
-                                               row_limit=payload["row_limit"])
+                correct = True
+                score = 1.0
+                hints = []
+                grader_results = None
 
             # Upload results CSV to S3
-            # Appends the download link(s) to the response message on success.
-            # Appends a failure notice if the upload was unable to complete.
+            download_link = None
             if payload["upload_results"]:
-                result_links = []
-
-                # Whether or not to upload grader results for incorrect answers
-                # TODO: False for now pending discussion with course instructor
-                upload_grader_results = payload.get("upload_grader_results", False)
-
-                # Result file name
-                filename = payload["filename"]
-
-                # Store results by their pull key (hash of pull time and ID)
-                key = header["submission_key"]
 
                 # Ensure student query generated result rows
-                if stu_results[1]:
+                if student_results[1]:
+
+                    # Store results by their pull key (hash of pull time + ID)
+                    key = header["submission_key"]
+                    filename = payload["filename"]
+
                     # Prefix filename if student response was incorrect
-                    stu_filename = filename
-                    if not response['correct']:
-                        stu_filename = "incorrect-" + filename
-                    stu_path = os.path.join(key, stu_filename)
-                    stu_link = self.upload_results(stu_results, stu_path,
-                                          "Download student results CSV:")
-                    result_links.append(stu_link)
+                    if not correct:
+                        filename = "incorrect-" + filename
+                    filepath = os.path.join(key, filename)
 
-                # Upload grader results as well
-                if upload_grader_results and grader_results[1]:
-                    if not response['correct']:
-                        inst_filename = "instructor-" + filename
-                        inst_path = os.path.join(key, inst_filename)
-                        inst_link = self.upload_results(grader_results, inst_path,
-                                                "Download instructor results CSV:")
-                        result_links.append(inst_link)
+                    download_link = self.upload_results(student_results,
+                                                        filepath)
 
-                # Append download links
-                if len(result_links):
-                    response["msg"] += "\n".join(result_links)
-
-            # Ensure the message is LMS-ready
-            response["msg"] = self.sanitize_message(response["msg"])
+            # Build the grader response dict
+            response = self.build_response(correct=correct,
+                                           score=score,
+                                           hints=hints,
+                                           student_results=student_results,
+                                           grader_results=grader_results,
+                                           row_limit=payload["row_limit"],
+                                           download_link=download_link)
 
             return response
 
@@ -292,7 +277,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
             """
             if not message:
-                message = "Download query results (CSV):"
+                message = "Download full results"
 
             # Convert result rows to CSV
             csv_results = self.csv_results(results)
@@ -300,39 +285,52 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             # Upload to S3
             s3_url = self.upload_to_s3(csv_results, path)
             if s3_url:
-                filename = os.path.basename(path)
-                context = {"url": s3_url, "filename": filename,
-                           "message": message}
-                download_link = DOWNLOAD_MESSAGE.substitute(context)
+                context = {"url": s3_url, "message": message,
+                           "icon_src": self.download_icon}
+                download_link = DOWNLOAD_LINK.substitute(context)
             else:
                 download_link = UPLOAD_FAILED_MESSAGE
 
             return download_link
 
         def build_response(self, correct, score, hints, student_results,
-                           grader_results=None, row_limit=None):
-            """ Build a message """
+                           grader_results=None, row_limit=None,
+                           download_link=""):
+            """ Builds a grader response dict. """
 
             response = {"correct": correct, "score": score}
 
-            student_html = self.html_results(student_results, row_limit)
+            # Response message template context
+            context = {"download_link": download_link, "hints": ""}
+
+            # Generate student response results table
+            context["student_results"] = self.html_results(student_results,
+                                                           row_limit)
 
             if grader_results and not correct:
-                grader_html = self.html_results(grader_results, row_limit)
-                context = {"expected": grader_html, "actual": student_html}
+
+                # Generate grader response results table
+                context["grader_results"] = self.html_results(grader_results,
+                                                              row_limit)
+
+                # Generate hints markup if hints were provided
+                if hints:
+                    hints_html = "<strong>Hints</strong>"
+                    hints_html += "<ul><li>"
+                    hints_html += "</li><li>".join(hints)
+                    hints_html += "</li></ul>"
+
+                    context["hints"] = hints_html
+
+                # Incorrect response template
                 message = INCORRECT_QUERY.substitute(context)
             else:
-                context = {"results": student_html}
+                # Correct response template
                 message = CORRECT_QUERY.substitute(context)
 
-            if hints:
-                message += "<strong>Hints:</strong>"
-                message += "<ul>"
-                for hint in hints:
-                    message += '<li>' + hint + '</li>'
-                message += "</ul>"
+            # LMS is strict with message contents...
+            response["msg"] = self.sanitize_message(message)
 
-            response["msg"] = message
             return response
 
         def csv_results(self, results):
@@ -381,8 +379,8 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             return html
 
         def result_stats(self, displayed, total):
-            return "<small>Showing %d of %s row%s.</small>" % (displayed, total,
-                                                       "s"[total == 1:])
+            return "<p><small>Showing %d of %s row%s.</small></p>" % (displayed, total,
+                                                                      "s"[total == 1:])
 
         def parse_grader_payload(self, payload):
             """ Parses the grader payload JSON object.
@@ -426,11 +424,8 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
            """
             message = message.replace("&", "&amp;")
 
-            # The LMS is very strict about message formatting. We wrap
-            # the message in a div so that there is one root element.
-            # The additional markup added by the download link will break
-            # things otherwise.
-            message = "<div>" + message + "</div>"
+            # The LMS is very strict about message formatting.
+            # TODO: Validate with lxml
 
             return message
 
