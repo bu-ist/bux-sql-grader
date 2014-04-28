@@ -21,6 +21,20 @@ class TestMySQLRubricScorer(unittest.TestCase):
             self.assertEquals(tuple(fixture["expected_score"]),
                               scorer.score())
 
+    def test_score_custom_scale(self):
+        with open(TESTS_DIR + "/scoring_fixtures/scores_custom_scale.json") as f:
+            fixtures = json.load(f)
+
+        for fixture in fixtures:
+            scorer = MySQLRubricScorer(fixture["student_answer"],
+                                       fixture["student_results"],
+                                       fixture["grader_answer"],
+                                       fixture["grader_results"],
+                                       fixture["scale"]
+                                       )
+            self.assertEquals(tuple(fixture["expected_score"]),
+                              scorer.score())
+
     # Row tests
 
     def test_rows_match(self):
@@ -120,3 +134,31 @@ class TestMySQLRubricScorer(unittest.TestCase):
         grader_results = (('col1', 'col2', 'col3', 'col4'), ())
         scorer = MySQLRubricScorer('', stu_results, '', grader_results)
         self.assertFalse(scorer.test_col_counts_close())
+
+    def test_parse_scale_map(self):
+        scale_map = {"perfect": 0.9, "close": 0.8, "nicetry": 0.7, "decent": 0.6, "fail": 0.5}
+        scorer = MySQLRubricScorer('', ((), ()), '', ((), ()))
+        self.assertEquals(scale_map, scorer.parse_scale_map(scale_map))
+
+    def test_parse_scale_map_defaults(self):
+        scale_map = None
+        scorer = MySQLRubricScorer('', ((), ()), '', ((), ()))
+        self.assertEquals(scorer.DEFAULT_SCALE, scorer.parse_scale_map(scale_map))
+
+    def test_parse_scale_map_float_values(self):
+        scale_map = {"perfect": 5}
+        scorer = MySQLRubricScorer('', ((), ()), '', ((), ()))
+        scale_map = scorer.parse_scale_map(scale_map)
+        self.assertTrue(isinstance(scale_map["perfect"], float))
+
+    def test_parse_scale_map_skips_invalid_values(self):
+        scale_map = {"perfect": "foo"}
+        scorer = MySQLRubricScorer('', ((), ()), '', ((), ()))
+        scale_map = scorer.parse_scale_map(scale_map)
+        self.assertEquals(scorer.DEFAULT_SCALE["perfect"], scale_map["perfect"])
+
+    def test_parse_scale_map_removes_invalid_keys(self):
+        scale_map = {"foo": "bar"}
+        scorer = MySQLRubricScorer('', ((), ()), '', ((), ()))
+        scale_map = scorer.parse_scale_map(scale_map)
+        self.assertNotIn("foo", scale_map)

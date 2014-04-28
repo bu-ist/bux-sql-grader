@@ -48,7 +48,8 @@ DUMMY_SUBMISSION = {
             "answer": "SELECT * FROM foo",
             "filename": "foo.csv",
             "row_limit": 10,
-            "upload_results": True
+            "upload_results": True,
+            "scale": None
         }
     }
 }

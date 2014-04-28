@@ -1,3 +1,4 @@
+import json
 import logging
 
 log = logging.getLogger(__name__)
@@ -25,8 +26,16 @@ class MySQLBaseScorer(object):
 
     KEYWORDS = ["SELECT", "WHERE", "JOIN", "ORDER BY", "ASC", "DESC", "GROUP BY", "LIMIT"]
 
+    DEFAULT_SCALE = {
+        "perfect": 1.0,
+        "close":  0.8,
+        "nicetry": 0.6,
+        "decent": 0.4,
+        "fail": 0.0
+        }
+
     def __init__(self, student_answer, student_results, grader_answer,
-                 grader_results):
+                 grader_results, scale=None):
         self.student_answer = student_answer
         self.student_cols = student_results[0]
         self.student_rows = student_results[1]
@@ -34,12 +43,37 @@ class MySQLBaseScorer(object):
         self.grader_cols = grader_results[0]
         self.grader_rows = grader_results[1]
 
+        self.scale = self.parse_scale_map(scale)
+
         self.missing_keywords = []
         self._tests = []
 
     def score(self):
         """ Subclasses should implement the scoring algorithm """
         raise NotImplemented
+
+    def parse_scale_map(self, scale_map):
+        """ Converts grader payload provided scale to dict """
+
+        if not isinstance(scale_map, dict):
+            return self.DEFAULT_SCALE
+
+        # Merge provided scale mapping with defaults
+        scale = dict(self.DEFAULT_SCALE.items() + scale_map.items())
+
+        # Cooerce scale values to floats
+        for key, val in scale.items():
+            try:
+                scale[key] = float(val)
+            except ValueError:
+                # Fallback to default value on fail
+                if key in self.DEFAULT_SCALE:
+                    scale[key] = self.DEFAULT_SCALE[key]
+                else:
+                    # Or delete if key is not present in default scale
+                    del scale[key]
+
+        return scale
 
     def test_rows_match(self):
         """ Do result rows match exactly? """
@@ -129,13 +163,13 @@ class MySQLRubricScorer(MySQLBaseScorer):
         if (results["test_rows_match"] and
            results["test_cols_match"] and
            results["test_keywords_match"]):
-            score = 1.0
+            score = self.scale["perfect"]
 
         # "Really Close":
         # - Columns are either out of order or named incorrectly
         elif (results["test_rows_match_unsorted"] and
               results["test_keywords_match"]):
-            score = .8
+            score = self.scale["close"]
 
         # "Nice Try"
         # - Row counts match but not unsorted contents (bad WHERE clause)
@@ -146,16 +180,16 @@ class MySQLRubricScorer(MySQLBaseScorer):
                 results["test_row_counts_match"]) or
                (results["test_cols_match"])) and
               results["test_keywords_match"]):
-            score = .6
+            score = self.scale["nicetry"]
 
         # "Decent Attempt"
         # - Row and column counts are in the right ballpark
         elif (results["test_row_counts_close"] and results["test_col_counts_close"]):
-            score = .4
+            score = self.scale["decent"]
 
         # "Fail"
         else:
-            score = .0
+            score = self.scale["fail"]
 
         # Generate hints based on the test results
         hints = self.generate_hints(results)
