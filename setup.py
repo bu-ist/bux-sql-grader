@@ -15,5 +15,6 @@ setup(
     long_description=open('README.md').read(),
     packages=['bux_sql_grader'],
     license='LICENSE',
-    install_requires=['boto', 'MySQL-python', 'numpy']
+    install_requires=['boto', 'MySQL-python', 'sqlfilter'],
+    dependency_links=['http://github.com/bu-ist/sql-filter/tarball/develop#egg=sqlfilter-0.1.0']
 )

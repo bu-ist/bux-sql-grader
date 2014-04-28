@@ -14,6 +14,8 @@ import os
 import MySQLdb
 from MySQLdb import OperationalError, Warning, Error
 
+import sqlfilter
+
 from string import Template
 from StringIO import StringIO
 
@@ -64,6 +66,34 @@ DOWNLOAD_MESSAGE = Template("""
 UPLOAD_FAILED_MESSAGE = """
 <p>Could not upload results file. Please contact course staff.</p>
 """
+
+SQL_BLACKLIST = (
+    "SLEEP",
+    "AES_DECRYPT",
+    "AES_ENCRYPT",
+    "BENCHMARK",
+    "DES_DECRYPT",
+    "DES_ENCRYPT",
+    "ENCRYPT",
+    "ExtractValue",
+    "FROM_BASE64",
+    "GET_LOCK",
+    "IS_FREE_LOCK",
+    "IS_USED_LOCK",
+    "LOAD_FILE",
+    "MASTER_POS_WAIT",
+    "OLD_PASSWORD",
+    "PASSWORD",
+    "PROCEDURE_ANALYSE",
+    "RANDOM_BYTES",
+    "USER",
+    "SESSION_USER",
+    "SQL_THREAD_WAIT_AFTER_GTIDS",
+    "WAIT_UNTIL_SQL_THREAD_AFTER_GTIDS",
+    "SYSTEM_USER",
+    "UpdateXML",
+    "VALIDATE_PASSWORD_STRENGTH"
+    )
 
 
 class InvalidQuery(Exception):
@@ -159,7 +189,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             response = {"correct": False, "score": 0, "msg": ""}
 
             # Evaluate the students response
-            student_response = body["student_response"]
+            student_response = self.filter_query(body["student_response"])
             try:
                 stu_results = self.execute_query(db, student_response)
             except InvalidQuery as e:
@@ -168,17 +198,18 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 return response
 
             # Evaluate the canonical grader answer (if present)
-            if payload["answer"]:
+            grader_response = self.filter_query(payload["answer"])
+            if grader_response:
                 try:
-                    grader_results = self.execute_query(db, payload["answer"])
+                    grader_results = self.execute_query(db, grader_response)
                 except InvalidQuery as e:
-                    context = {"query": payload["answer"], "error": e}
+                    context = {"query": grader_response, "error": e}
                     response["msg"] = INVALID_GRADER_QUERY.substitute(context)
                     return response
 
                 correct, score, messages = self.grade_results(student_response,
                                                               stu_results,
-                                                              payload["answer"],
+                                                              grader_response,
                                                               grader_results)
                 response = self.build_response(correct, score, messages,
                                                stu_results, grader_results,
@@ -237,6 +268,16 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             response["msg"] = self.sanitize_message(response["msg"])
 
             return response
+
+        def filter_query(self, query):
+            """ Filter SQL query to remove any blacklisted keywords """
+            if not query:
+                return query
+
+            filtered = sqlfilter.filter_sql(query, SQL_BLACKLIST, False)
+            if filtered != query:
+                log.warning("SQL query was filtered. Before: %s After: %s", query, filtered)
+            return filtered
 
         def execute_query(self, db, stmt):
             """ Execute the SQL query
