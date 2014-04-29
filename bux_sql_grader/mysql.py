@@ -70,7 +70,7 @@ DOWNLOAD_LINK = Template("""
 """)
 
 UPLOAD_FAILED_MESSAGE = """
-<p>Could not upload results file. Please contact course staff.</p>
+<small style="color:#b40">Unable to upload results. Please try again later.</small>
 """
 
 SQL_BLACKLIST = (
@@ -233,7 +233,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 grader_results = None
 
             # Upload results CSV to S3
-            download_link = None
+            download_link = ""
             if payload["upload_results"]:
 
                 # Ensure student query generated result rows
