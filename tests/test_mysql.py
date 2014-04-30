@@ -54,6 +54,7 @@ DUMMY_SUBMISSION = {
 }
 
 
+@patch('bux_sql_grader.mysql.statsd', autospec=True)
 @patch('bux_sql_grader.mysql.MySQLdb', autospec=True)
 class TestMySQLEvaluator(unittest.TestCase):
 
@@ -61,7 +62,7 @@ class TestMySQLEvaluator(unittest.TestCase):
         CONFIG = dict(MYSQL_CONFIG.items() + S3_CONFIG.items())
         self.grader = MySQLEvaluator(**CONFIG)
 
-    def test_db_connect(self, mock_db):
+    def test_db_connect(self, mock_db, mock_statsd):
         self.grader.db_connect('foo')
 
         mock_db.connect.assert_called_with(MYSQL_CONFIG["host"],
@@ -72,13 +73,13 @@ class TestMySQLEvaluator(unittest.TestCase):
                                            connect_timeout=10
                                            )
 
-    def test_db_connect_raises_exception(self, mock_db):
+    def test_db_connect_raises_exception(self, mock_db, mock_statsd):
         mock_db.connect.side_effect = MySQLdb.OperationalError
 
         self.assertRaises(ImproperlyConfiguredGrader,
                           self.grader.db_connect, 'bar')
 
-    def test_execute_query(self, mock_db):
+    def test_execute_query(self, mock_db, mock_statsd):
         mock_cursor = MagicMock(spec=Cursor)
         mock_cursor.fetchall.return_value = DUMMY_QUERY['rows']
         mock_cursor.description = DUMMY_QUERY['description']
@@ -89,7 +90,7 @@ class TestMySQLEvaluator(unittest.TestCase):
         results = self.grader.execute_query(db, DUMMY_QUERY['query'])
         self.assertEquals(DUMMY_QUERY['result'], results)
 
-    def test_execute_query_invalid(self, mock_db):
+    def test_execute_query_invalid(self, mock_db, mock_statsd):
         mock_cursor = MagicMock(spec=Cursor)
         mock_cursor.execute.side_effect = MySQLdb.Error(1146, 'Table does not exist')
 
@@ -99,7 +100,7 @@ class TestMySQLEvaluator(unittest.TestCase):
         self.assertRaises(InvalidQuery,
                           self.grader.execute_query, db, DUMMY_QUERY['query'])
 
-    def test_evaluate(self, mock_db):
+    def test_evaluate(self, mock_db, mock_statsd):
         results = (('col1', 'col2'), (('a', 'b'), ('c', 'd')))
         download_link = '<p>Download link: <a href="#">foo.csv</a></p>'
         row_limit = DUMMY_SUBMISSION["xqueue_body"]["grader_payload"]["row_limit"]
@@ -113,7 +114,7 @@ class TestMySQLEvaluator(unittest.TestCase):
 
         self.assertEquals(expected, self.grader.evaluate(DUMMY_SUBMISSION))
 
-    def test_evaluate_invalid_student_query(self, mock_db):
+    def test_evaluate_invalid_student_query(self, mock_db, mock_statsd):
         query = DUMMY_SUBMISSION["xqueue_body"]["student_response"]
         error_msg = "Bad student query"
 
@@ -127,7 +128,7 @@ class TestMySQLEvaluator(unittest.TestCase):
         }
         self.assertEquals(expected, self.grader.evaluate(DUMMY_SUBMISSION))
 
-    def test_evaluate_invalid_grader_query(self, mock_db):
+    def test_evaluate_invalid_grader_query(self, mock_db, mock_statsd):
         query = DUMMY_SUBMISSION["xqueue_body"]["grader_payload"]["answer"]
         error_msg = "Bad grader query"
 
@@ -148,7 +149,7 @@ class TestMySQLEvaluator(unittest.TestCase):
         }
         self.assertEquals(expected, self.grader.evaluate(DUMMY_SUBMISSION))
 
-    def test_evaluate_row_limit(self, mock_db):
+    def test_evaluate_row_limit(self, mock_db, mock_statsd):
         results = (('col1',), (('a',), ('b',), ('c'), ('d',), ('e',)))
         submission = copy.deepcopy(DUMMY_SUBMISSION)
         submission["xqueue_body"]["grader_payload"]["row_limit"] = 3
@@ -161,7 +162,7 @@ class TestMySQLEvaluator(unittest.TestCase):
 
         self.assertIn("Showing 3 of 5 rows", response["msg"])
 
-    def test_evaluate_row_limit_no_limit(self, mock_db):
+    def test_evaluate_row_limit_no_limit(self, mock_db, mock_statsd):
         results = (('col1',), (('a',), ('b',), ('c'), ('d',), ('e',)))
         submission = copy.deepcopy(DUMMY_SUBMISSION)
 
@@ -174,7 +175,7 @@ class TestMySQLEvaluator(unittest.TestCase):
             response = self.grader.evaluate(submission)
             self.assertIn("Showing 5 of 5 rows", response["msg"])
 
-    def test_evaluate_sandbox_query(self, mock_db):
+    def test_evaluate_sandbox_query(self, mock_db, mock_statsd):
         results = (('col1',), (('a',), ('b',), ('c'), ('d',), ('e',)))
         submission = copy.deepcopy(DUMMY_SUBMISSION)
         submission["xqueue_body"]["grader_payload"]["answer"] = None
@@ -188,7 +189,7 @@ class TestMySQLEvaluator(unittest.TestCase):
 
         self.assertEquals(expected, actual)
 
-    def test_evaluate_sandbox_query_respects_row_limit(self, mock_db):
+    def test_evaluate_sandbox_query_respects_row_limit(self, mock_db, mock_statsd):
         results = (('col1',), (('a',), ('b',), ('c'), ('d',), ('e',)))
         submission = copy.deepcopy(DUMMY_SUBMISSION)
         submission["xqueue_body"]["grader_payload"]["answer"] = None
@@ -202,18 +203,18 @@ class TestMySQLEvaluator(unittest.TestCase):
 
         self.assertIn("Showing 2 of 5 rows", response["msg"])
 
-    def test_upload_results(self, mock_db):
+    def test_upload_results(self, mock_db, mock_statsd):
         pass
 
-    def test_build_response(self, mock_db):
+    def test_build_response(self, mock_db, mock_statsd):
         pass
 
-    def test_parse_grader_payload(self, mock_db):
+    def test_parse_grader_payload(self, mock_db, mock_statsd):
         payload = DUMMY_SUBMISSION['xqueue_body']['grader_payload']
 
         self.assertEquals(payload, self.grader.parse_grader_payload(payload))
 
-    def test_parse_grader_payload_defaults(self, mock_db):
+    def test_parse_grader_payload_defaults(self, mock_db, mock_statsd):
         payload = {}
         default = copy.deepcopy(self.grader.DEFAULT_PAYLOAD)
 
@@ -223,28 +224,28 @@ class TestMySQLEvaluator(unittest.TestCase):
         parsed = self.grader.parse_grader_payload(payload)
         self.assertEquals(default, parsed)
 
-    def test_parse_grader_payload_overrides_defaults(self, mock_db):
+    def test_parse_grader_payload_overrides_defaults(self, mock_db, mock_statsd):
         payload = DUMMY_SUBMISSION['xqueue_body']['grader_payload']
         payload["database"] = "baz"
         payload["filename"] = "bar.csv"
 
         self.assertEquals(payload, self.grader.parse_grader_payload(payload))
 
-    def test_parse_grader_payload_sanitizes_row_limit(self, mock_db):
+    def test_parse_grader_payload_sanitizes_row_limit(self, mock_db, mock_statsd):
         payload = DUMMY_SUBMISSION['xqueue_body']['grader_payload']
         payload["row_limit"] = "foo"
 
         parsed = self.grader.parse_grader_payload(payload)
         self.assertEquals(None, parsed["row_limit"])
 
-    def test_sanitize_row_limit(self, mock_db):
+    def test_sanitize_row_limit(self, mock_db, mock_statsd):
         pass
 
-    def test_sanitize_message(self, mock_db):
+    def test_sanitize_message(self, mock_db, mock_statsd):
         pass
 
-    def test_csv_results(self, mock_db):
+    def test_csv_results(self, mock_db, mock_statsd):
         pass
 
-    def test_html_results(self, mock_db):
+    def test_html_results(self, mock_db, mock_statsd):
         pass
