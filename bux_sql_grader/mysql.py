@@ -11,6 +11,8 @@ import csv
 import logging
 import os
 
+from statsd import statsd
+
 import MySQLdb
 from MySQLdb import OperationalError, Warning, Error
 
@@ -281,6 +283,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 :raises InvalidQuery: if the query could not be executed
 
             """
+            timer = statsd.timer('bux_sql_grader.execute_query').start()
             cursor = db.cursor()
             try:
                 cursor.execute(stmt)
@@ -293,6 +296,8 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 msg = e.args[1]
                 code = e.args[0]
                 raise InvalidQuery("MySQL Error {}: {}".format(code, msg))
+            finally:
+                timer.stop()
             return cols, rows
 
         def grade_results(self, student_answer, student_results, grader_answer,
@@ -300,10 +305,12 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             """ Compares student and grader responses to generate a score """
 
             # Generate a score
+            timer = statsd.timer('bux_sql_grader.grade_results').start()
             scorer = MySQLRubricScorer(student_answer, student_results,
                                        grader_answer, grader_results)
             score, messages = scorer.score()
             correct = (score == 1)
+            timer.stop()
             return correct, score, messages
 
         def upload_results(self, results, path, message=None):
@@ -316,6 +323,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                          s3 upload failed
 
             """
+            timer = statsd.timer('bux_sql_grader.upload_results').start()
             if not message:
                 message = "Download full results"
 
@@ -331,6 +339,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             else:
                 download_link = UPLOAD_FAILED_MESSAGE
 
+            timer.stop()
             return download_link
 
         def build_response(self, correct, score, hints, student_results,
