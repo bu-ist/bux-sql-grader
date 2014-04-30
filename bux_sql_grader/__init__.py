@@ -11,6 +11,6 @@
     :license: GNU Affero General Public License
 """
 
-__version__ = '0.1.0'
+__version__ = '0.1.0-alpha'
 
 from .mysql import MySQLEvaluator
