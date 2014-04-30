@@ -7,7 +7,7 @@ except ImportError:
 
 setup(
     name='bux-sql-grader',
-    version='0.1.0',
+    version='0.1.0-alpha',
     author='Boston University',
     author_email='webteam@bu.edu',
     url='https://github.com/bu-ist/bux-sql-grader/',
@@ -15,5 +15,6 @@ setup(
     long_description=open('README.md').read(),
     packages=['bux_sql_grader'],
     license='LICENSE',
-    install_requires=['boto', 'MySQL-python']
+    install_requires=['boto', 'MySQL-python', 'sqlfilter'],
+    dependency_links=['http://github.com/bu-ist/sql-filter/tarball/develop#egg=sqlfilter-0.1.0']
 )

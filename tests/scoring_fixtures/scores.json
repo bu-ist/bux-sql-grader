@@ -1,0 +1,107 @@
+[
+    {
+        "grader_results": [["playerId", "HR"], [["bautijo02", 54], ["pujolal01", 42], ["konerpa01", 39], ["cabremi01", 38], ["dunnad01", 38], ["vottojo01", 37], ["gonzaca01", 34], ["ugglada01", 33], ["teixema01", 33], ["reynoma01", 32]]],
+        "student_results": [["playerId", "HR"], [["bautijo02", 54], ["pujolal01", 42], ["konerpa01", 39], ["cabremi01", 38], ["dunnad01", 38], ["vottojo01", 37], ["gonzaca01", 34], ["ugglada01", 33], ["teixema01", 33], ["reynoma01", 32]]],
+        "grader_answer": "SELECT playerId, HR FROM Batting WHERE yearID = 2010 ORDER BY HR DESC LIMIT 10",
+        "student_answer": "SELECT playerId, HR FROM Batting WHERE yearID = 2010 ORDER BY HR DESC LIMIT 10",
+        "expected_score": [1, []]
+    },
+    {
+        "student_answer": "SELECT playerID, HR FROM Batting WHERE yearID = 2010 ORDER BY HR DESC LIMIT 10",
+        "student_results": [["playerID", "HR"], [["bautijo02", 54], ["pujolal01", 42], ["konerpa01", 39], ["cabremi01", 38], ["dunnad01", 38], ["vottojo01", 37], ["gonzaca01", 34], ["ugglada01", 33], ["teixema01", 33], ["reynoma01", 32]]],
+        "grader_answer": "SELECT playerId, HR FROM Batting WHERE yearID = 2010 ORDER BY HR DESC LIMIT 10",
+        "grader_results": [["playerId", "HR"], [["bautijo02", 54], ["pujolal01", 42], ["konerpa01", 39], ["cabremi01", 38], ["dunnad01", 38], ["vottojo01", 37], ["gonzaca01", 34], ["ugglada01", 33], ["teixema01", 33], ["reynoma01", 32]]],
+        "expected_score": [0.8, ["Columns are named incorrectly."]]
+    },
+    {
+        "student_answer": "SELECT HR, playerID FROM  Batting WHERE yearID = 2011 ORDER BY HR DESC LIMIT 5",
+        "student_results": [["HR", "playerID"], [[43, "bautijo02"], [41, "grandcu01"], [39, "kempma01"], [39, "teixema01"], [38, "fieldpr01"]]],
+        "grader_answer": "SELECT playerID, HR FROM Batting WHERE yearID = 2011 ORDER BY HR DESC LIMIT 5",
+        "grader_results": [["playerID", "HR"], [["bautijo02", 43], ["grandcu01", 41], ["kempma01", 39], ["teixema01", 39], ["fieldpr01", 38]]],
+        "expected_score": [0.8, ["Columns are out of order."]]
+    },
+    {
+        "student_answer": "SELECT playerID, HR FROM Batting WHERE yearID = 2011 ORDER BY HR DESC LIMIT 6",
+        "student_results": [["playerID", "HR"], [["bautijo02", 43], ["grandcu01", 41], ["teixema01", 39], ["kempma01", 39], ["fieldpr01", 38], ["reynoma01", 37]]],
+        "grader_answer": "SELECT playerID, HR FROM Batting WHERE yearID = 2011 ORDER BY HR DESC LIMIT 5",
+        "grader_results": [["playerID", "HR"], [["bautijo02", 43], ["grandcu01", 41], ["kempma01", 39], ["teixema01", 39], ["fieldpr01", 38]]],
+        "expected_score": [0.6, ["Too many rows."]]
+    },
+    {
+        "student_answer": "SELECT playerID, HR FROM Batting WHERE yearID = 2011 ORDER BY HR DESC LIMIT 4",
+        "student_results": [["playerID", "HR"], [["bautijo02", 43], ["grandcu01", 41], ["kempma01", 39], ["teixema01", 39]]],
+        "grader_answer": "SELECT playerID, HR FROM Batting WHERE yearID = 2011 ORDER BY HR DESC LIMIT 5",
+        "grader_results": [["playerID", "HR"], [["bautijo02", 43], ["grandcu01", 41], ["kempma01", 39], ["teixema01", 39], ["fieldpr01", 38]]],
+        "expected_score": [0.6, ["Too few rows."]]
+    },
+    {
+        "student_answer": "SELECT playerID, HR FROM Batting WHERE yearID = 2010 ORDER BY HR DESC LIMIT 5",
+        "student_results": [["playerID", "HR"], [["bautijo02", 54], ["pujolal01", 42], ["konerpa01", 39], ["cabremi01", 38], ["dunnad01", 38]]],
+        "grader_answer": "SELECT playerID, HR FROM Batting WHERE yearID = 2011 ORDER BY HR DESC LIMIT 5",
+        "grader_results": [["playerID", "HR"], [["bautijo02", 43], ["grandcu01", 41], ["kempma01", 39], ["teixema01", 39], ["fieldpr01", 38]]],
+        "expected_score": [0.6, ["Row count and column names are correct. Compare your rows against the expected results."]]
+    },
+    {
+        "student_answer": "SELECT teamId, AB FROM Batting WHERE yearID = 2010 ORDER BY HR DESC LIMIT 5",
+        "student_results": [["teamId", "AB"], [["TOR", 569], ["SLN", 587], ["CHA", 548], ["DET", 548], ["WAS", 558]]],
+        "grader_answer": "SELECT playerID, HR FROM Batting WHERE yearID = 2011 ORDER BY HR DESC LIMIT 5",
+        "grader_results": [["playerID", "HR"], [["bautijo02", 43], ["grandcu01", 41], ["kempma01", 39], ["teixema01", 39], ["fieldpr01", 38]]],
+        "expected_score": [0.6, ["Columns are named incorrectly."]]
+    },
+    {
+        "student_answer": "SELECT HR FROM Batting WHERE yearID = 2011 ORDER BY HR DESC LIMIT 5",
+        "student_results": [["HR"], [[43], [41], [39], [39], [38]]],
+        "grader_answer": "SELECT playerID, HR FROM Batting WHERE yearID = 2011 ORDER BY HR DESC LIMIT 5",
+        "grader_results": [["playerID", "HR"], [["bautijo02", 43], ["grandcu01", 41], ["kempma01", 39], ["teixema01", 39], ["fieldpr01", 38]]],
+        "expected_score": [0.4, ["Too few columns."]]
+    },
+    {
+        "student_answer": "SELECT playerId, HR, AB FROM  Batting WHERE yearID = 2011 ORDER BY HR DESC LIMIT 5",
+        "student_results": [["playerId", "HR", "AB"], [["bautijo02", 43, 513], ["grandcu01", 41, 583], ["kempma01", 39, 602], ["teixema01", 39, 589], ["fieldpr01", 38, 569]]],
+        "grader_answer": "SELECT playerID, HR FROM Batting WHERE yearID = 2011 ORDER BY HR DESC LIMIT 5",
+        "grader_results": [["playerID", "HR"], [["bautijo02", 43], ["grandcu01", 41], ["kempma01", 39], ["teixema01", 39], ["fieldpr01", 38]]],
+        "expected_score": [0.4, ["Too many columns."]]
+    },
+    {
+        "student_answer": "SELECT playerID, HR FROM Batting WHERE yearID = 2010 ORDER BY HR DESC LIMIT 9",
+        "student_results": [["playerID", "HR"], [["bautijo02", 54], ["pujolal01", 42], ["konerpa01", 39], ["dunnad01", 38], ["cabremi01", 38], ["vottojo01", 37], ["gonzaca01", 34], ["teixema01", 33], ["ugglada01", 33]]],
+        "grader_answer": "SELECT playerId, HR FROM Batting WHERE yearID = 2010 ORDER BY HR DESC LIMIT 10",
+        "grader_results": [["playerId", "HR"], [["bautijo02", 54], ["pujolal01", 42], ["konerpa01", 39], ["cabremi01", 38], ["dunnad01", 38], ["vottojo01", 37], ["gonzaca01", 34], ["ugglada01", 33], ["teixema01", 33], ["reynoma01", 32]]],
+        "expected_score": [0.4, ["Too few rows.", "Columns are named incorrectly."]]
+    },
+    {
+        "student_answer": "SELECT playerId, HR FROM Batting WHERE yearID = 2010 ORDER BY HR ASC LIMIT 10",
+        "student_results": [["playerId", "HR"], [["aardsda01", 0], ["aldrico01", 0], ["alberma01", 0], ["affelje01", 0], ["adamsmi03", 0], ["acostma01", 0], ["aceveal01", 0], ["ambrihe01", 0], ["alonsyo01", 0], ["abadfe01", 0]]],
+        "grader_answer": "SELECT playerId, HR FROM Batting WHERE yearID = 2010 ORDER BY HR DESC LIMIT 10",
+        "grader_results": [["playerId", "HR"], [["bautijo02", 54], ["pujolal01", 42], ["konerpa01", 39], ["cabremi01", 38], ["dunnad01", 38], ["vottojo01", 37], ["gonzaca01", 34], ["ugglada01", 33], ["teixema01", 33], ["reynoma01", 32]]],
+        "expected_score": [0.4, ["Missing SQL Keywords: DESC", "Row count and column names are correct. Compare your rows against the expected results."]]
+    },
+    {
+        "student_answer": "SELECT SB, AB, yearID FROM Batting WHERE yearID = 2010 ORDER BY HR DESC LIMIT 4",
+        "student_results": [["SB", "AB", "yearID"], [[9, 569, 2010], [14, 587, 2010], [0, 548, 2010], [3, 548, 2010]]],
+        "grader_answer": "SELECT playerID, HR FROM Batting WHERE yearID = 2011 ORDER BY HR DESC LIMIT 5",
+        "grader_results": [["playerID", "HR"], [["bautijo02", 43], ["grandcu01", 41], ["kempma01", 39], ["teixema01", 39], ["fieldpr01", 38]]],
+        "expected_score": [0.4, ["Too few rows.", "Too many columns."]]
+    },
+    {
+        "student_answer": "SELECT SB, AB FROM Batting WHERE playerID = 'bautijo02' ORDER BY HR DESC LIMIT 4",
+        "student_results": [["SB", "AB"], [[9, 569], [9, 513], [7, 452], [5, 332]]],
+        "grader_answer": "SELECT playerID, HR FROM Batting WHERE yearID = 2011 ORDER BY HR DESC LIMIT 5",
+        "grader_results": [["playerID", "HR"], [["bautijo02", 43], ["grandcu01", 41], ["kempma01", 39], ["teixema01", 39], ["fieldpr01", 38]]],
+        "expected_score": [0.4, ["Too few rows.", "Columns are named incorrectly."]]
+    },
+    {
+        "student_answer": "SELECT * FROM Teams LIMIT 2",
+        "student_results": [["yearID", "lgID", "teamID", "franchID", "divID", "Rank", "G", "Ghome", "W", "L", "DivWin", "WCWin", "LgWin", "WSWin", "R", "AB", "H", "2B", "3B", "HR", "BB", "SO", "SB", "CS", "HBP", "SF", "RA", "ER", "ERA", "CG", "SHO", "SV", "IPouts", "HA", "HRA", "BBA", "SOA", "E", "DP", "FP", "name", "park", "attendance", "BPF", "PPF", "teamIDBR", "teamIDlahman45", "teamIDretro"], [[1871, "NA", "BS1", "BNA", "", 3, 31, 0, 20, 10, "", "", "N", "", 401, 1372, 426, 70, 37, 3, 60, 19, 73, 0, 0, 0, 303, 109, 3.55, 22, 1, 3, 828, 367, 2, 42, 23, 225, 0, 0.83, "Boston Red Stockings", "South End Grounds I", 0, 103, 98, "BOS", "BS1", "BS1"], [1871, "NA", "CH1", "CNA", "", 2, 28, 0, 19, 9, "", "", "N", "", 302, 1196, 323, 52, 21, 10, 60, 22, 69, 0, 0, 0, 241, 77, 2.76, 25, 0, 1, 753, 308, 6, 28, 22, 218, 0, 0.82, "Chicago White Stockings", "Union Base-Ball Grounds", 0, 104, 102, "CHI", "CH1", "CH1"]]],
+        "grader_answer": "SELECT playerID, HR FROM Batting WHERE yearID = 2011 ORDER BY HR DESC LIMIT 5",
+        "grader_results": [["playerID", "HR"], [["bautijo02", 43], ["grandcu01", 41], ["kempma01", 39], ["teixema01", 39], ["fieldpr01", 38]]],
+        "expected_score": [0.0, ["Missing SQL Keywords: WHERE, ORDER BY, DESC", "Too few rows.", "Too many columns."]]
+    },
+    {
+        "student_answer": "DESCRIBE Batting",
+        "student_results": [["Field", "Type", "Null", "Key", "Default", "Extra"], [["playerID", "varchar(9)", "NO", "PRI", null, ""], ["yearID", "int(11)", "NO", "PRI", null, ""], ["stint", "int(11)", "NO", "PRI", null, ""], ["teamID", "varchar(3)", "YES", "", null, ""], ["lgID", "varchar(2)", "YES", "", null, ""], ["G", "int(11)", "YES", "", null, ""], ["G_batting", "int(11)", "YES", "", null, ""], ["AB", "int(11)", "YES", "", null, ""], ["R", "int(11)", "YES", "", null, ""], ["H", "int(11)", "YES", "", null, ""], ["2B", "int(11)", "YES", "", null, ""], ["3B", "int(11)", "YES", "", null, ""], ["HR", "int(11)", "YES", "", null, ""], ["RBI", "int(11)", "YES", "", null, ""], ["SB", "int(11)", "YES", "", null, ""], ["CS", "int(11)", "YES", "", null, ""], ["BB", "int(11)", "YES", "", null, ""], ["SO", "int(11)", "YES", "", null, ""], ["IBB", "int(11)", "YES", "", null, ""], ["HBP", "int(11)", "YES", "", null, ""], ["SH", "int(11)", "YES", "", null, ""], ["SF", "int(11)", "YES", "", null, ""], ["GIDP", "int(11)", "YES", "", null, ""], ["G_old", "int(11)", "YES", "", null, ""]]],
+        "grader_answer": "SELECT playerID, HR FROM Batting WHERE yearID = 2011 ORDER BY HR DESC LIMIT 5",
+        "grader_results": [["playerID", "HR"], [["bautijo02", 43], ["grandcu01", 41], ["kempma01", 39], ["teixema01", 39], ["fieldpr01", 38]]],
+        "expected_score": [0.0, ["Missing SQL Keywords: SELECT, WHERE, ORDER BY, LIMIT", "Too many rows.", "Too many columns."]]
+    }
+]
