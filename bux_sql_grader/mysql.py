@@ -156,7 +156,8 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             "answer": None,
             "row_limit": 10,
             "filename": S3UploaderMixin.DEFAULT_S3_FILENAME,
-            "upload_results": True
+            "upload_results": True,
+            "scale": None
         }
 
         def __init__(self, database, host, user, passwd, port=3306, timeout=10,
@@ -225,7 +226,8 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 correct, score, hints = self.grade_results(student_response,
                                                            student_results,
                                                            grader_response,
-                                                           grader_results)
+                                                           grader_results,
+                                                           payload["scale"])
             else:
                 # If no grader answer was found in the payload this is a
                 # sandbox query. These are always correct.
@@ -301,13 +303,13 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             return cols, rows
 
         def grade_results(self, student_answer, student_results, grader_answer,
-                          grader_results):
+                          grader_results, scale=None):
             """ Compares student and grader responses to generate a score """
 
             # Generate a score
             timer = statsd.timer('bux_sql_grader.grade_results').start()
             scorer = MySQLRubricScorer(student_answer, student_results,
-                                       grader_answer, grader_results)
+                                       grader_answer, grader_results, scale)
             score, messages = scorer.score()
             correct = (score == 1)
             timer.stop()
