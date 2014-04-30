@@ -45,7 +45,7 @@
         "grader_answer": "SELECT playerID, HR FROM Batting WHERE yearID = 2011 ORDER BY HR DESC LIMIT 5",
         "grader_results": [["playerID", "HR"], [["bautijo02", 43], ["grandcu01", 41], ["kempma01", 39], ["teixema01", 39], ["fieldpr01", 38]]],
         "scale": {"perfect": 2, "close": 1.5, "nicetry": 1, "decent": 0.5, "fail": 0.2},
-        "expected_score": [1, ["Incorrect column calculation"]]
+        "expected_score": [1, ["Row count and column names are correct. Compare your rows against the expected results."]]
     },
     {
         "student_answer": "SELECT teamId, AB FROM Batting WHERE yearID = 2010 ORDER BY HR DESC LIMIT 5",
@@ -85,7 +85,7 @@
         "grader_answer": "SELECT playerId, HR FROM Batting WHERE yearID = 2010 ORDER BY HR DESC LIMIT 10",
         "grader_results": [["playerId", "HR"], [["bautijo02", 54], ["pujolal01", 42], ["konerpa01", 39], ["cabremi01", 38], ["dunnad01", 38], ["vottojo01", 37], ["gonzaca01", 34], ["ugglada01", 33], ["teixema01", 33], ["reynoma01", 32]]],
         "scale": {"perfect": 2, "close": 1.5, "nicetry": 1, "decent": 0.5, "fail": 0.2},
-        "expected_score": [0.5, ["Missing SQL Keywords: DESC", "Incorrect column calculation"]]
+        "expected_score": [0.5, ["Missing SQL Keywords: DESC", "Row count and column names are correct. Compare your rows against the expected results."]]
     },
     {
         "student_answer": "SELECT SB, AB, yearID FROM Batting WHERE yearID = 2010 ORDER BY HR DESC LIMIT 4",

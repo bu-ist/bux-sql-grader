@@ -230,7 +230,7 @@ class MySQLRubricScorer(MySQLBaseScorer):
             hints.append("Columns are out of order.")
 
         elif results["test_row_counts_match"] and not results["test_rows_match_unsorted"]:
-            hints.append("Incorrect column calculation")
+            hints.append("Row count and column names are correct. Compare your rows against the expected results.")
 
         # Row ordering
         elif results["test_rows_match_unsorted"] and not results["test_rows_match"]:
