@@ -16,6 +16,5 @@ setup(
     packages=['bux_sql_grader'],
     scripts=['bin/sqlmon.py'],
     license='LICENSE',
-    install_requires=['boto', 'MySQL-python', 'sqlfilter'],
-    dependency_links=['http://github.com/bu-ist/sql-filter/tarball/develop#egg=sqlfilter-0.1.0']
+    install_requires=['boto', 'MySQL-python']
 )
