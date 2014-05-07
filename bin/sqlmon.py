@@ -7,47 +7,47 @@ import time
 log = logging.getLogger(__name__)
 
 
-def expired_processes(db, db_blacklist=None, user_blacklist=None, threshold=5):
-    """ Generates processes which have exceeded the configured query TTL.
+def expired_processes(db, db_blacklist=None, user_blacklist=None, limit=5):
+    """ Generates a list of processes which have exceeded the execution limit.
 
         Returns a tuple of process ID and query.
 
         :param db: MySQLdb connection object
         :param db_blacklist: list of databases to monitor
         :param user_blacklist: list of users to monitor queries of
-        :param threshold: kill queries not finished in this many seconds
+        :param limit: kill queries not finished in this many seconds
 
     """
     db.query("SHOW FULL PROCESSLIST")
-    process_list = db.store_result().fetch_row(maxrows=200, how=1)
+    process_list = db.store_result().fetch_row(maxrows=500, how=1)
 
     for row in process_list:
         if row['Info']:
             log.debug("Process row: %s", row)
 
-            # Skip users we're not monitoring
-            if user_blacklist and row['User'] not in user_blacklist:
-                log.debug("Skipping row, query user not in blacklist: %s",
-                          user_blacklist)
-                continue
-
-            # Skip databases we're not being asked to monitor
+            # Skip queries to databases not in our blacklist
             if db_blacklist and row['db'] not in db_blacklist:
                 log.debug("Skipping row, query database not in blacklist: %s",
                           db_blacklist)
                 continue
 
+            # Skip queries by users that are not in our blacklist
+            if user_blacklist and row['User'] not in user_blacklist:
+                log.debug("Skipping row, query user not in blacklist: %s",
+                          user_blacklist)
+                continue
+
             # Check if this query has been running for too long
-            if row['Time'] > threshold:
+            if row['Time'] > limit:
                 yield row['Id'], row['Info']
             else:
-                log.debug("Skipping row, execution time is below threshold of %d seconds", threshold)
+                log.debug("Skipping row, execution time is under %d second limit", limit)
 
 
 if __name__ == "__main__":
 
     # Command line options
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Kills long running MySQL processes")
     parser.add_argument("--host", default="127.0.0.1", help="database host")
     parser.add_argument("--port", default=3306, type=int, help="database port")
     parser.add_argument("--user", default="root", help="database user")
@@ -90,7 +90,10 @@ if __name__ == "__main__":
     # Enter query monitoring loop
     try:
         while True:
-            for pid, query in expired_processes(db, args.dbs, args.users, args.limit):
+            for pid, query in expired_processes(db=db,
+                                                db_blacklist=args.dbs,
+                                                user_blacklist=args.users,
+                                                limit=args.limit):
                 db.query("KILL %d" % pid)
 
                 log.warning("Killed query #%d: %s (exceeded %ds execution limit)",
