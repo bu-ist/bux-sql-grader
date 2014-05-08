@@ -3,6 +3,7 @@ import argparse
 import ConfigParser
 import logging
 import MySQLdb
+import sys
 import time
 
 log = logging.getLogger(__name__)
@@ -128,6 +129,10 @@ if __name__ == "__main__":
     print "Users to watch: %s" % user_list
     print "Time limit: %ds" % args.limit
     print
+
+    # Workaround to ensure run stats are displayed when script
+    # is managed by supervisor
+    sys.stdout.flush()
 
     # Establish database connection
     db = MySQLdb.connect(host=creds["host"],
