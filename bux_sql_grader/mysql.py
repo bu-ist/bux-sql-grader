@@ -210,7 +210,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 student_results = self.execute_query(db, student_response)
             except InvalidQuery as e:
                 context = {"error": e}
-                response["msg"] = INVALID_STUDENT_QUERY.substitute(context)
+                response["msg"] = self.sanitize_message(INVALID_STUDENT_QUERY.substitute(context))
                 return response
 
             # Evaluate the canonical grader answer (if present)
@@ -220,7 +220,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                     grader_results = self.execute_query(db, grader_response)
                 except InvalidQuery as e:
                     context = {"error": e}
-                    response["msg"] = INVALID_GRADER_QUERY.substitute(context)
+                    response["msg"] = self.sanitize_message(INVALID_GRADER_QUERY.substitute(context))
                     return response
 
                 correct, score, hints = self.grade_results(student_response,
