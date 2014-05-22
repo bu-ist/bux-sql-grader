@@ -402,6 +402,15 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             sio.close()
             return csv_results
 
+        def format_html_col(self, col):
+            """ Format a result column value for HTML """
+            formatted = unicode(col)
+
+            if col is None:
+                formatted = "NULL"
+
+            return formatted
+
         def html_results(self, results, row_limit=None):
             """ Format result set for display as HTML """
             cols, rows = results
@@ -418,7 +427,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 if row_limit and idx >= row_limit:
                     break
                 html += "<tr><td>{}</td></tr>".format(
-                        "</td><td>".join(str(col) for col in row))
+                        "</td><td>".join(self.format_html_col(col) for col in row))
 
             html += "</tbody></table></code></pre>"
 
