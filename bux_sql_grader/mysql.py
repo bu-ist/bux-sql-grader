@@ -493,7 +493,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
         def status(self):
             """ Assert that a DB connection can be made """
             try:
-                self.db_connect()
+                self.db_connect(self.database)
             except ImproperlyConfiguredGrader:
                 return False
             else:
