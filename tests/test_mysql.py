@@ -71,7 +71,10 @@ class TestMySQLEvaluator(unittest.TestCase):
                                            MYSQL_CONFIG["passwd"],
                                            'foo',
                                            MYSQL_CONFIG["port"],
-                                           connect_timeout=10
+                                           connect_timeout=10,
+                                           charset='utf8',
+                                           use_unicode=True,
+                                           autocommit=True,
                                            )
 
     def test_db_connect_raises_exception(self, mock_db, mock_statsd):
