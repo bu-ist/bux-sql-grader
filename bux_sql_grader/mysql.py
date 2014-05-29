@@ -183,6 +183,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 db = MySQLdb.connect(self.host, self.user, self.passwd,
                                      database, self.port,
                                      charset='utf8', use_unicode=True,
+                                     autocommit=True,
                                      connect_timeout=self.timeout)
             except OperationalError as e:
                 log.exception("Could not connect to DB")
