@@ -21,6 +21,9 @@ import sqlfilter
 from string import Template
 from StringIO import StringIO
 
+from xml.sax.saxutils import escape as xml_escape
+from lxml import etree
+
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 
@@ -212,8 +215,8 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             try:
                 student_results = self.execute_query(db, student_response)
             except InvalidQuery as e:
-                context = {"error": e}
-                response["msg"] = self.sanitize_message(INVALID_STUDENT_QUERY.substitute(context))
+                context = {"error": xml_escape(unicode(e))}
+                response["msg"] = self.validate_message(INVALID_STUDENT_QUERY.substitute(context))
                 return response
 
             # Evaluate the canonical grader answer (if present)
@@ -222,8 +225,8 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 try:
                     grader_results = self.execute_query(db, grader_response)
                 except InvalidQuery as e:
-                    context = {"error": e}
-                    response["msg"] = self.sanitize_message(INVALID_GRADER_QUERY.substitute(context))
+                    context = {"error": xml_escape(unicode(e))}
+                    response["msg"] = self.validate_message(INVALID_GRADER_QUERY.substitute(context))
                     return response
 
                 correct, score, hints = self.grade_results(student_response,
@@ -338,11 +341,11 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             # Upload to S3
             s3_url = self.upload_to_s3(csv_results, path)
             if s3_url:
-                context = {"url": s3_url, "message": message,
-                           "icon_src": self.download_icon}
+                context = {"url": xml_escape(s3_url), "message": xml_escape(message),
+                           "icon_src": xml_escape(self.download_icon)}
                 download_link = DOWNLOAD_LINK.substitute(context)
             else:
-                download_link = UPLOAD_FAILED_MESSAGE
+                download_link = xml_escape(UPLOAD_FAILED_MESSAGE)
 
             timer.stop()
             return download_link
@@ -369,6 +372,9 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
                 # Generate hints markup if hints were provided
                 if hints:
+                    # Ensure hint text is XML-safe
+                    hints = [xml_escape(hint) for hint in hints]
+
                     hints_html = "<strong>Hints</strong>"
                     hints_html += "<ul><li>"
                     hints_html += "</li><li>".join(hints)
@@ -383,7 +389,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 message = CORRECT_QUERY.substitute(context)
 
             # LMS is strict with message contents...
-            response["msg"] = self.sanitize_message(message)
+            response["msg"] = self.validate_message(message)
 
             return response
 
@@ -406,7 +412,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
         def format_html_col(self, col):
             """ Format a result column value for HTML """
-            formatted = unicode(col)
+            formatted = xml_escape(unicode(col))
 
             if col is None:
                 formatted = "NULL"
@@ -476,19 +482,21 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
             return limit
 
-        def sanitize_message(self, message):
+        def validate_message(self, message):
             """ Ensure that the message does not contain invalid XML entities.
 
             The LMS runs grader messages through lxml.etree.fromstring which
-            fails with invalid XML, resulting in:
-
-                "Invalid grader reply. Please contact the course staff."
+            raises an exception it contains any invalid XML. This will actually
+            kill the problem module, displaying a gnarly traceback to the student
+            when the page is reloaded.
 
            """
-            message = message.replace("&", "&amp;")
-
-            # The LMS is very strict about message formatting.
-            # TODO: Validate with lxml
+            try:
+                etree.fromstring(message)
+            except etree.XMLSyntaxError as e:
+                log.error("Message contains invalid XML: %s (%s)", message, e)
+                message = "<div>Unable to display results. Please report this issue to course staff.</div>"
+                statsd.incr('bux_sql_grader.invalid_message')
 
             return message
 

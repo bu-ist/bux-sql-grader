@@ -16,5 +16,5 @@ setup(
     packages=['bux_sql_grader'],
     scripts=['bin/sqlmon.py'],
     license='LICENSE',
-    install_requires=['boto', 'MySQL-python']
+    install_requires=['boto', 'MySQL-python', 'lxml']
 )
