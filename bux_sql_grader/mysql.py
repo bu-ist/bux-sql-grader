@@ -167,13 +167,14 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
         }
 
         def __init__(self, database, host, user, passwd, port=3306, timeout=10,
-                     download_icon=None, *args, **kwargs):
+                     select_limit=10000, download_icon=None, *args, **kwargs):
             self.database = database
             self.host = host
             self.user = user
             self.passwd = passwd
             self.port = port
             self.timeout = timeout
+            self.select_limit = select_limit
 
             # Path to CSV download icon
             if download_icon:
@@ -238,6 +239,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             payload = self.parse_grader_payload(body["grader_payload"])
 
             db = self.db_connect(payload["database"])
+            self.set_select_limit(db)
 
             response = {"correct": False, "score": 0, "msg": ""}
 
@@ -305,6 +307,19 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
             db.close()
             return response
+
+        def set_select_limit(self, db):
+            """ Set the SQL_SELECT_LIMIT for this session.
+
+            For protection against poorly conceived queries.
+
+            """
+            if not self.select_limit:
+                return
+
+            cursor = db.cursor()
+            cursor.execute("SET SQL_SELECT_LIMIT = %d" % self.select_limit)
+            cursor.close()
 
         def filter_query(self, query):
             """ Filter SQL query to remove any blacklisted keywords """
