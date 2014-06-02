@@ -53,6 +53,7 @@ INVALID_GRADER_QUERY = Template("""
 
 CORRECT_QUERY = Template("""
 <div class="correct">
+    $notices
     <small style="float:right">$download_link</small>
     <h3>Query Results</h3>
     $student_results
@@ -60,6 +61,7 @@ CORRECT_QUERY = Template("""
 
 INCORRECT_QUERY = Template("""
 <div class="error">
+    $notices
     <div style="float:left;width:48%;">
         <small style="float:right">$download_link</small>
         <h3>Your Results</h3>
@@ -80,6 +82,12 @@ DOWNLOAD_LINK = Template("""
 UPLOAD_FAILED_MESSAGE = """
 <small style="color:#b40">Unable to upload results. Please try again later.</small>
 """
+
+WARNING_TMPL = Template("""
+<div style="margin-bottom: 15px; padding: 15px 10px 0 10px; border: 1px solid #b40; border-radius: 3px; background-color: #ffd0ca;">
+$msg
+</div>
+""")
 
 SQL_BLACKLIST = (
     "SLEEP",
@@ -245,6 +253,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             response = {"correct": False, "score": 0, "msg": ""}
 
             # Evaluate the students response
+            student_warnings = []
             student_response = self.filter_query(body["student_response"])
             try:
                 student_results = self.execute_query(db, student_response)
@@ -254,7 +263,12 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 db.close()
                 return response
 
+            # Let the student know their query was insane.
+            if len(student_results[1]) == self.select_limit:
+                student_warnings.append("The result set below is incomplete. Your query was modified to LIMIT results to %d rows. Consider adding a WHERE or LIMIT clause to narrow down results, and check any JOIN statements to make sure you're joining ON the appropriate columns." % self.select_limit)
+
             # Evaluate the canonical grader answer (if present)
+            grader_warnings = []
             grader_response = self.filter_query(payload["answer"])
             if grader_response:
                 try:
@@ -264,6 +278,10 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                     response["msg"] = self.validate_message(INVALID_GRADER_QUERY.substitute(context))
                     db.close()
                     return response
+
+                # Let the course authors know their query was insane.
+                if len(grader_results[1]) == self.select_limit:
+                    grader_warnings.append("The result set below is incomplete. Your query was modified to LIMIT results to %d rows. Consider adding a WHERE or LIMIT clause to narrow down results, and check any JOIN statements to make sure you're joining ON the appropriate columns." % self.select_limit)
 
                 correct, score, hints = self.grade_results(student_response,
                                                            student_results,
@@ -302,7 +320,9 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                                            score=score,
                                            hints=hints,
                                            student_results=student_results,
+                                           student_warnings=student_warnings,
                                            grader_results=grader_results,
+                                           grader_warnings=grader_warnings,
                                            row_limit=payload["row_limit"],
                                            download_link=download_link)
 
@@ -441,7 +461,8 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             return download_link
 
         def build_response(self, correct, score, hints, student_results,
-                           grader_results=None, row_limit=None,
+                           student_warnings=[], grader_results=None,
+                           grader_warnings=[], row_limit=None,
                            download_link=""):
             """ Builds a grader response dict. """
 
@@ -453,6 +474,22 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             # Generate student response results table
             context["student_results"] = self.html_results(student_results,
                                                            row_limit)
+
+            # Generate warning messages if queries had to be modified
+            notices = ""
+            if student_warnings:
+                student_warnings = [xml_escape(notice) for notice in student_warnings]
+                student_warning = "<strong>Warning</strong><p>"
+                student_warning += "</p><p>".join(student_warnings) + "</p>"
+                notices += WARNING_TMPL.substitute(msg=student_warning)
+
+            if grader_warnings:
+                grader_warnings = [xml_escape(notice) for notice in grader_warnings]
+                grader_warning = "<strong>Warning</strong><p>"
+                grader_warning += "</p><p>".join(grader_warnings) + "</p>"
+                notices += WARNING_TMPL.substitute(msg=grader_warning)
+
+            context["notices"] = notices
 
             if grader_results and not correct:
 
