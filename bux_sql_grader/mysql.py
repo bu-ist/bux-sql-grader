@@ -19,6 +19,7 @@ import MySQLdb.converters
 from MySQLdb import OperationalError, Warning, Error
 
 import sqlfilter
+import sqlparse
 
 from string import Template
 from StringIO import StringIO
@@ -326,10 +327,44 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             if not query:
                 return query
 
+            # Make sure LIMIT clauses are sane
+            query = self.enforce_select_limit(query)
+
+            # Remove terms from blacklist
             filtered = sqlfilter.filter_sql(query, SQL_BLACKLIST, False)
             if filtered != query:
                 log.warning("SQL query was filtered. Before: %s After: %s", query, filtered)
+
             return filtered
+
+        def enforce_select_limit(self, query):
+            """ Examines queries to ensure LIMIT clauses do not exceed our select_limit. """
+            for stmt in sqlparse.parse(query):
+                limit = stmt.token_next_match(0, sqlparse.tokens.Keyword, 'LIMIT')
+                if limit:
+                    value = stmt.token_next(stmt.token_index(limit))
+
+                    # Limit is an identifier list (e.g. LIMIT 5,10)
+                    if value.is_group():
+                        value = value.token_next(1)
+
+                        # Malformed offset LIMIT, skip it
+                        if not value:
+                            break
+
+                    # Ensure LIMIT value is an integer
+                    if value.ttype == sqlparse.tokens.Number.Integer:
+                        limit_val = int(value.value)
+                        if limit_val > self.select_limit:
+                            value.value = unicode(self.select_limit)
+                            query = unicode(stmt)
+                            log.warning("Enforced SQL_SELECT_LIMIT for query: %s (original limit = %d)", query, limit_val)
+
+                    # LIMIT is ... something else.  Probably invalid SQL.  Ignore it.
+                    else:
+                        log.warning("Unexpected value following LIMIT clause: %s", unicode(value))
+
+            return query
 
         def execute_query(self, db, stmt):
             """ Execute the SQL query
