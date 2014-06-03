@@ -359,6 +359,9 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
         def enforce_select_limit(self, query):
             """ Examines queries to ensure LIMIT clauses do not exceed our select_limit. """
+            if not self.select_limit:
+                return query
+
             for stmt in sqlparse.parse(query):
                 limit = stmt.token_next_match(0, sqlparse.tokens.Keyword, 'LIMIT')
                 if limit:
