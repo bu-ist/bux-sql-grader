@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.6
+
+* Hotfix: Add XML sanitization for column headings
+
 ## 0.2.5
 
 * Adds SET to the SQL blacklist to prevent students from modifying session variables
