@@ -428,7 +428,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 return "<pre><code>No rows found.</code></pre>"
 
             html = "<pre><code><table><thead>"
-            html += "<tr><th>{}</th></tr>".format("</th><th>".join(cols))
+            html += "<tr><th>{}</th></tr>".format("</th><th>".join(self.format_html_col(col) for col in cols))
             html += "</thead><tbody>"
 
             for idx, row in enumerate(rows):
