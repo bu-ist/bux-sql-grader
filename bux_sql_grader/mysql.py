@@ -52,16 +52,14 @@ INVALID_GRADER_QUERY = Template("""
 </div>""")
 
 CORRECT_QUERY = Template("""
-<div class="correct">
-    $notices
+<div class="correct">$notices
     <small style="float:right">$download_link</small>
     <h3>Query Results</h3>
     $student_results
 </div>""")
 
 INCORRECT_QUERY = Template("""
-<div class="error">
-    $notices
+<div class="error">$notices
     <div style="float:left;width:48%;">
         <small style="float:right">$download_link</small>
         <h3>Your Results</h3>
@@ -362,7 +360,10 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             if not self.select_limit:
                 return query
 
-            for stmt in sqlparse.parse(query):
+            enforced = False
+
+            stmts = sqlparse.parse(query)
+            for stmt in stmts:
                 limit = stmt.token_next_match(0, sqlparse.tokens.Keyword, 'LIMIT')
                 if limit:
                     value = stmt.token_next(stmt.token_index(limit))
@@ -380,12 +381,16 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                         limit_val = int(value.value)
                         if limit_val > self.select_limit:
                             value.value = unicode(self.select_limit)
-                            query = unicode(stmt)
-                            log.warning("Enforced SQL_SELECT_LIMIT for query: %s (original limit = %d)", query, limit_val)
+                            enforced = True
 
                     # LIMIT is ... something else.  Probably invalid SQL.  Ignore it.
                     else:
-                        log.warning("Unexpected value following LIMIT clause: %s", unicode(value))
+                        log.warning("Unexpected value following LIMIT clause: %s  Query: %s", unicode(value), unicode(stmt))
+
+            # Reconstruct the query from the modified sqlparse objects
+            if enforced:
+                query = "".join([unicode(stmt) for stmt in stmts])
+                log.warning("Enforced SQL_SELECT_LIMIT for query: %s (original limit = %d)", query, limit_val)
 
             return query
 
