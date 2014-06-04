@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import copy
 import unittest
 import MySQLdb
@@ -29,7 +31,7 @@ DUMMY_QUERY = {
     "query": "SELECT yearID, HR FROM Batting WHERE yearID = '2010' ORDER BY HR DESC LIMIT 10",
     "description" : (('yearID', 3, 4, 11, 11, 0, 0), ('HR', 3, 2, 11, 11, 0, 1)),
     "rows" : ((2010L, 54L), (2010L, 42L), (2010L, 39L), (2010L, 38L), (2010L, 38L), (2010L, 37L), (2010L, 34L), (2010L, 33L), (2010L, 33L), (2010L, 32L)),
-    "result": (['yearID', 'HR'], ((2010L, 54L), (2010L, 42L), (2010L, 39L), (2010L, 38L), (2010L, 38L), (2010L, 37L), (2010L, 34L), (2010L, 33L), (2010L, 33L), (2010L, 32L)))
+    "result": ((u'yearID', u'HR'), ((2010L, 54L), (2010L, 42L), (2010L, 39L), (2010L, 38L), (2010L, 38L), (2010L, 37L), (2010L, 34L), (2010L, 33L), (2010L, 33L), (2010L, 32L)))
 }
 
 DUMMY_SUBMISSION = {
@@ -105,7 +107,7 @@ class TestMySQLEvaluator(unittest.TestCase):
                           self.grader.execute_query, db, DUMMY_QUERY['query'])
 
     def test_evaluate(self, mock_db, mock_statsd):
-        results = (('col1', 'col2'), (('a', 'b'), ('c', 'd')))
+        results = ((u'col1', u'col2'), ((u'a', u'b'), (u'c', u'd')))
         download_link = '<p>Download link: <a href="#">foo.csv</a></p>'
         row_limit = DUMMY_SUBMISSION["xqueue_body"]["grader_payload"]["row_limit"]
 
@@ -154,7 +156,7 @@ class TestMySQLEvaluator(unittest.TestCase):
         self.assertEquals(expected, self.grader.evaluate(DUMMY_SUBMISSION))
 
     def test_evaluate_row_limit(self, mock_db, mock_statsd):
-        results = (('col1',), (('a',), ('b',), ('c'), ('d',), ('e',)))
+        results = ((u'col1',), ((u'a',), (u'b',), (u'c'), (u'd',), (u'e',)))
         submission = copy.deepcopy(DUMMY_SUBMISSION)
         submission["xqueue_body"]["grader_payload"]["row_limit"] = 3
 
@@ -167,7 +169,7 @@ class TestMySQLEvaluator(unittest.TestCase):
         self.assertIn("Showing 3 of 5 rows", response["msg"])
 
     def test_evaluate_row_limit_no_limit(self, mock_db, mock_statsd):
-        results = (('col1',), (('a',), ('b',), ('c'), ('d',), ('e',)))
+        results = ((u'col1',), ((u'a',), (u'b',), (u'c'), (u'd',), (u'e',)))
         submission = copy.deepcopy(DUMMY_SUBMISSION)
 
         # Mock query results and S3 upload
@@ -180,7 +182,7 @@ class TestMySQLEvaluator(unittest.TestCase):
             self.assertIn("Showing 5 of 5 rows", response["msg"])
 
     def test_evaluate_sandbox_query(self, mock_db, mock_statsd):
-        results = (('col1',), (('a',), ('b',), ('c'), ('d',), ('e',)))
+        results = ((u'col1',), ((u'a',), (u'b',), (u'c'), (u'd',), (u'e',)))
         submission = copy.deepcopy(DUMMY_SUBMISSION)
         submission["xqueue_body"]["grader_payload"]["answer"] = None
 
@@ -194,7 +196,7 @@ class TestMySQLEvaluator(unittest.TestCase):
         self.assertEquals(expected, actual)
 
     def test_evaluate_sandbox_query_respects_row_limit(self, mock_db, mock_statsd):
-        results = (('col1',), (('a',), ('b',), ('c'), ('d',), ('e',)))
+        results = ((u'col1',), ((u'a',), (u'b',), (u'c'), (u'd',), (u'e',)))
         submission = copy.deepcopy(DUMMY_SUBMISSION)
         submission["xqueue_body"]["grader_payload"]["answer"] = None
         submission["xqueue_body"]["grader_payload"]["row_limit"] = 2
@@ -206,6 +208,74 @@ class TestMySQLEvaluator(unittest.TestCase):
         response = self.grader.evaluate(submission)
 
         self.assertIn("Showing 2 of 5 rows", response["msg"])
+
+    def test_evaluate_unicode_student_error(self, mock_db, mock_statsd):
+        query = DUMMY_SUBMISSION["xqueue_body"]["student_response"]
+        error_msg = "MySQL Error 1054: Unknown column '·' in 'field list'"
+
+        # Raises exception on first call (student query)
+        self.grader.execute_query = MagicMock(side_effect=InvalidQuery(error_msg))
+
+        expected = {
+            "correct": False,
+            "score": 0,
+            "msg": INVALID_STUDENT_QUERY.substitute(query=query, error=error_msg)
+        }
+        self.assertEquals(expected, self.grader.evaluate(DUMMY_SUBMISSION))
+
+    def test_evaluate_unicode_grader_error(self, mock_db, mock_statsd):
+        query = DUMMY_SUBMISSION["xqueue_body"]["student_response"]
+        error_msg = "MySQL Error 1054: Unknown column '·' in 'field list'"
+
+        # Needs to succeed on first call (student query)
+        def side_effect(*args):
+            def second_call(*args):
+                raise InvalidQuery(error_msg)
+            mock_exec_query.side_effect = second_call
+            return
+
+        mock_exec_query = MagicMock(side_effect=side_effect)
+        self.grader.execute_query = mock_exec_query
+
+        expected = {
+            "correct": False,
+            "score": 0,
+            "msg": INVALID_GRADER_QUERY.substitute(query=query, error=error_msg)
+        }
+        self.assertEquals(expected, self.grader.evaluate(DUMMY_SUBMISSION))
+
+    def test_evaluate_unicode_result_rows(self, mock_db, mock_statsd):
+        results = ((u'col1', u'col2'), ((u'ä', u'b'), (u'c', u'd')))
+        download_link = '<p>Download link: <a href="#">foo.csv</a></p>'
+        row_limit = DUMMY_SUBMISSION["xqueue_body"]["grader_payload"]["row_limit"]
+
+        # Mock query results and S3 upload
+        self.grader.execute_query = MagicMock(return_value=results)
+        self.grader.upload_results = MagicMock(return_value=download_link)
+
+        # Build response using grader API
+        expected = self.grader.build_response(True, 1.0, [], results, results, row_limit, download_link)
+
+        self.assertEquals(expected, self.grader.evaluate(DUMMY_SUBMISSION))
+
+    def test_evaluate_unicode_result_cols(self, mock_db, mock_statsd):
+        results = ((u'col1', u'ö'), ((u'a', u'b'), (u'c', u'd')))
+        download_link = '<p>Download link: <a href="#">foo.csv</a></p>'
+        row_limit = DUMMY_SUBMISSION["xqueue_body"]["grader_payload"]["row_limit"]
+
+        # Mock query results and S3 upload
+        self.grader.execute_query = MagicMock(return_value=results)
+        self.grader.upload_results = MagicMock(return_value=download_link)
+
+        # Build response using grader API
+        expected = self.grader.build_response(True, 1.0, [], results, results, row_limit, download_link)
+
+        self.assertEquals(expected, self.grader.evaluate(DUMMY_SUBMISSION))
+
+    def test_csv_results_unicode(self, mock_db, mock_statsd):
+        results = ((u'col1', u'ö'), ((u'ä', u'b'), (u'c', u'd')))
+        expected = 'col1,\xc3\xb6\r\n\xc3\xa4,b\r\nc,d\r\n'
+        self.assertEquals(expected, self.grader.csv_results(results))
 
     def test_upload_results(self, mock_db, mock_statsd):
         pass
