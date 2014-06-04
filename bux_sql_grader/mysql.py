@@ -215,7 +215,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             try:
                 student_results = self.execute_query(db, student_response)
             except InvalidQuery as e:
-                context = {"error": xml_escape(unicode(e))}
+                context = {"error": xml_escape(str(e))}
                 response["msg"] = self.validate_message(INVALID_STUDENT_QUERY.substitute(context))
                 return response
 
@@ -225,7 +225,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 try:
                     grader_results = self.execute_query(db, grader_response)
                 except InvalidQuery as e:
-                    context = {"error": xml_escape(unicode(e))}
+                    context = {"error": xml_escape(str(e))}
                     response["msg"] = self.validate_message(INVALID_GRADER_QUERY.substitute(context))
                     return response
 
