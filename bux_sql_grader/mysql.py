@@ -404,10 +404,10 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             writer = csv.writer(sio)
 
             if cols:
-                writer.writerow(cols)
+                writer.writerow([unicode(s).encode('utf-8') for s in cols])
 
             for row in rows:
-                writer.writerow(row)
+                writer.writerow([unicode(s).encode('utf-8') for s in row])
 
             csv_results = sio.getvalue()
             sio.close()
