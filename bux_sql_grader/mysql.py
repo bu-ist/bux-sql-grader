@@ -297,9 +297,12 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 cursor.execute(stmt)
                 rows = cursor.fetchall()
 
-                cols = []
+                cols = ()
                 if cursor.description:
-                    cols = [str(col[0]) for col in cursor.description]
+                    # Cursor descriptions are not returned as unicode by
+                    # MySQLdb so we convert them to support unicode chars in
+                    # column headings.
+                    cols = tuple(unicode(col[0], 'utf-8') for col in cursor.description)
             except (OperationalError, Warning, Error) as e:
                 msg = e.args[1]
                 code = e.args[0]
@@ -428,14 +431,14 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 return "<pre><code>No rows found.</code></pre>"
 
             html = "<pre><code><table><thead>"
-            html += "<tr><th>{}</th></tr>".format("</th><th>".join(self.format_html_col(col) for col in cols))
+            html += u"<tr><th>{}</th></tr>".format(u"</th><th>".join(self.format_html_col(col) for col in cols))
             html += "</thead><tbody>"
 
             for idx, row in enumerate(rows):
                 if row_limit and idx >= row_limit:
                     break
-                html += "<tr><td>{}</td></tr>".format(
-                        "</td><td>".join(self.format_html_col(col) for col in row))
+                html += u"<tr><td>{}</td></tr>".format(
+                        u"</td><td>".join(self.format_html_col(col) for col in row))
 
             html += "</tbody></table></code></pre>"
 
