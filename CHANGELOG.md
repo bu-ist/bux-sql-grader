@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.8
+
+* Scoring optimizations
+
 ## 0.2.7
 
 * Adds support for unicode characters in result rows / column headings
