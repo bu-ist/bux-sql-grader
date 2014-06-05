@@ -1,5 +1,6 @@
-import json
 import logging
+
+from statsd import statsd
 
 log = logging.getLogger(__name__)
 
@@ -89,8 +90,8 @@ class MySQLBaseScorer(object):
         TODO: Improve accuracy by doing the same sorts on columns of data
 
         """
-        sorted_grader_rows = sorted(sorted(row) for row in self.grader_rows)
-        sorted_student_rows = sorted(sorted(row) for row in self.student_rows)
+        sorted_grader_rows = sorted(sorted(row, reverse=True) for row in self.grader_rows)
+        sorted_student_rows = sorted(sorted(row, reverse=True) for row in self.student_rows)
 
         return (sorted_grader_rows == sorted_student_rows)
 
@@ -156,7 +157,9 @@ class MySQLRubricScorer(MySQLBaseScorer):
 
         # TODO: Don't run unneccesary tests, clearer test logic
         for test in self.tests:
+            timer = statsd.timer('bux_sql_grader.scoring.%s' % test.__name__).start()
             result = test()
+            timer.stop()
             results[test.__name__] = result
 
         # "Perfect"
