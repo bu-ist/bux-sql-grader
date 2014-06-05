@@ -1,5 +1,6 @@
-import json
 import logging
+
+from statsd import statsd
 
 log = logging.getLogger(__name__)
 
@@ -156,7 +157,9 @@ class MySQLRubricScorer(MySQLBaseScorer):
 
         # TODO: Don't run unneccesary tests, clearer test logic
         for test in self.tests:
+            timer = statsd.timer('bux_sql_grader.scoring.%s' % test.__name__).start()
             result = test()
+            timer.stop()
             results[test.__name__] = result
 
         # "Perfect"
