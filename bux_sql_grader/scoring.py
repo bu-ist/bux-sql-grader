@@ -89,8 +89,8 @@ class MySQLBaseScorer(object):
         TODO: Improve accuracy by doing the same sorts on columns of data
 
         """
-        sorted_grader_rows = sorted(sorted(row) for row in self.grader_rows)
-        sorted_student_rows = sorted(sorted(row) for row in self.student_rows)
+        sorted_grader_rows = sorted(sorted(row, reverse=True) for row in self.grader_rows)
+        sorted_student_rows = sorted(sorted(row, reverse=True) for row in self.student_rows)
 
         return (sorted_grader_rows == sorted_student_rows)
 

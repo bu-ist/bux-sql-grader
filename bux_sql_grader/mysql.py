@@ -14,6 +14,8 @@ import os
 from statsd import statsd
 
 import MySQLdb
+import MySQLdb.constants.FIELD_TYPE
+import MySQLdb.converters
 from MySQLdb import OperationalError, Warning, Error
 
 import sqlfilter
@@ -183,12 +185,18 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             super(MySQLEvaluator, self).__init__(*args, **kwargs)
 
         def db_connect(self, database):
+            # Cast MySQL DECIMALs to str instead of float,
+            # to speed up sorts in scoring.test_rows_match_unsorted()
+            converter = MySQLdb.converters.conversions.copy()
+            converter[MySQLdb.constants.FIELD_TYPE.NEWDECIMAL] = str
+            
             try:
                 db = MySQLdb.connect(self.host, self.user, self.passwd,
                                      database, self.port,
                                      charset='utf8', use_unicode=True,
                                      autocommit=True,
-                                     connect_timeout=self.timeout)
+                                     connect_timeout=self.timeout,
+                                     conv=converter)
             except OperationalError as e:
                 log.exception("Could not connect to DB")
                 raise ImproperlyConfiguredGrader(e)
