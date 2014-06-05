@@ -188,8 +188,9 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             # Cast MySQL DECIMALs to str instead of float,
             # to speed up sorts in scoring.test_rows_match_unsorted()
             converter = MySQLdb.converters.conversions.copy()
+            converter[MySQLdb.constants.FIELD_TYPE.DECIMAL] = str
             converter[MySQLdb.constants.FIELD_TYPE.NEWDECIMAL] = str
-            
+
             try:
                 db = MySQLdb.connect(self.host, self.user, self.passwd,
                                      database, self.port,
