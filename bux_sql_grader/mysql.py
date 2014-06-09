@@ -226,6 +226,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             except InvalidQuery as e:
                 context = {"error": xml_escape(str(e))}
                 response["msg"] = self.validate_message(INVALID_STUDENT_QUERY.substitute(context))
+                db.close()
                 return response
 
             # Evaluate the canonical grader answer (if present)
@@ -236,6 +237,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 except InvalidQuery as e:
                     context = {"error": xml_escape(str(e))}
                     response["msg"] = self.validate_message(INVALID_GRADER_QUERY.substitute(context))
+                    db.close()
                     return response
 
                 correct, score, hints = self.grade_results(student_response,
@@ -279,6 +281,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                                            row_limit=payload["row_limit"],
                                            download_link=download_link)
 
+            db.close()
             return response
 
         def filter_query(self, query):
@@ -312,6 +315,8 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                     # MySQLdb so we convert them to support unicode chars in
                     # column headings.
                     cols = tuple(unicode(col[0], 'utf-8') for col in cursor.description)
+
+                cursor.close()
             except (OperationalError, Warning, Error) as e:
                 msg = e.args[1]
                 code = e.args[0]
@@ -515,8 +520,9 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
         def status(self):
             """ Assert that a DB connection can be made """
             try:
-                self.db_connect(self.database)
+                db = self.db_connect(self.database)
             except ImproperlyConfiguredGrader:
                 return False
             else:
+                db.close()
                 return True
