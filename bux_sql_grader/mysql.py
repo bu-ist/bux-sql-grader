@@ -334,6 +334,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             scorer = MySQLRubricScorer(student_answer, student_results,
                                        grader_answer, grader_results, scale)
             score, messages = scorer.score()
+            scorer.close()
             correct = (score == 1)
             timer.stop()
             return correct, score, messages
