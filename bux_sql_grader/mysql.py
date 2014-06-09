@@ -14,8 +14,6 @@ import os
 from statsd import statsd
 
 import MySQLdb
-import MySQLdb.constants.FIELD_TYPE
-import MySQLdb.converters
 from MySQLdb import OperationalError, Warning, Error
 
 import sqlfilter
@@ -185,19 +183,13 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             super(MySQLEvaluator, self).__init__(*args, **kwargs)
 
         def db_connect(self, database):
-            # Cast MySQL DECIMALs to str instead of float,
-            # to speed up sorts in scoring.test_rows_match_unsorted()
-            converter = MySQLdb.converters.conversions.copy()
-            converter[MySQLdb.constants.FIELD_TYPE.DECIMAL] = str
-            converter[MySQLdb.constants.FIELD_TYPE.NEWDECIMAL] = str
 
             try:
                 db = MySQLdb.connect(self.host, self.user, self.passwd,
                                      database, self.port,
                                      charset='utf8', use_unicode=True,
                                      autocommit=True,
-                                     connect_timeout=self.timeout,
-                                     conv=converter)
+                                     connect_timeout=self.timeout)
             except OperationalError as e:
                 log.exception("Could not connect to DB")
                 raise ImproperlyConfiguredGrader(e)
@@ -226,6 +218,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             except InvalidQuery as e:
                 context = {"error": xml_escape(str(e))}
                 response["msg"] = self.validate_message(INVALID_STUDENT_QUERY.substitute(context))
+                db.close()
                 return response
 
             # Evaluate the canonical grader answer (if present)
@@ -236,6 +229,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 except InvalidQuery as e:
                     context = {"error": xml_escape(str(e))}
                     response["msg"] = self.validate_message(INVALID_GRADER_QUERY.substitute(context))
+                    db.close()
                     return response
 
                 correct, score, hints = self.grade_results(student_response,
@@ -279,6 +273,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                                            row_limit=payload["row_limit"],
                                            download_link=download_link)
 
+            db.close()
             return response
 
         def filter_query(self, query):
@@ -312,6 +307,8 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                     # MySQLdb so we convert them to support unicode chars in
                     # column headings.
                     cols = tuple(unicode(col[0], 'utf-8') for col in cursor.description)
+
+                cursor.close()
             except (OperationalError, Warning, Error) as e:
                 msg = e.args[1]
                 code = e.args[0]
@@ -329,6 +326,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             scorer = MySQLRubricScorer(student_answer, student_results,
                                        grader_answer, grader_results, scale)
             score, messages = scorer.score()
+            scorer.close()
             correct = (score == 1)
             timer.stop()
             return correct, score, messages
@@ -413,10 +411,10 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             writer = csv.writer(sio)
 
             if cols:
-                writer.writerow([unicode(s).encode('utf-8') for s in cols])
+                writer.writerow([self.format_csv_col(s) for s in cols])
 
             for row in rows:
-                writer.writerow([unicode(s).encode('utf-8') for s in row])
+                writer.writerow([self.format_csv_col(s) for s in row])
 
             csv_results = sio.getvalue()
             sio.close()
@@ -428,6 +426,15 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
             if col is None:
                 formatted = "NULL"
+
+            return formatted
+
+        def format_csv_col(self, col):
+            """ Format a result column value for CSV """
+            formatted = unicode(col).encode('utf-8')
+
+            if col is None:
+                formatted = ""
 
             return formatted
 
@@ -515,8 +522,9 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
         def status(self):
             """ Assert that a DB connection can be made """
             try:
-                self.db_connect(self.database)
+                db = self.db_connect(self.database)
             except ImproperlyConfiguredGrader:
                 return False
             else:
+                db.close()
                 return True
