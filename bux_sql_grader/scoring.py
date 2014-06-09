@@ -134,6 +134,12 @@ class MySQLBaseScorer(object):
                     self.missing_keywords.append(keyword)
         return (len(self.missing_keywords) == 0)
 
+    def close(self):
+        self.student_cols = None
+        self.student_rows = None
+        self.grader_cols = None
+        self.grader_rows = None
+
     @property
     def tests(self):
         """ Returns callable test methods (methods prefixed with 'test_') """
@@ -240,9 +246,3 @@ class MySQLRubricScorer(MySQLBaseScorer):
             hints.append("Rows are out of order.")
 
         return hints
-
-    def close(self):
-        self.student_cols = None
-        self.student_rows = None
-        self.grader_cols = None
-        self.grader_rows = None
