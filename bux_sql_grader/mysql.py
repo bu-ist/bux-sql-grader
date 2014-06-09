@@ -419,10 +419,10 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             writer = csv.writer(sio)
 
             if cols:
-                writer.writerow([unicode(s).encode('utf-8') for s in cols])
+                writer.writerow([self.format_csv_col(s) for s in cols])
 
             for row in rows:
-                writer.writerow([unicode(s).encode('utf-8') for s in row])
+                writer.writerow([self.format_csv_col(s) for s in row])
 
             csv_results = sio.getvalue()
             sio.close()
@@ -434,6 +434,15 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
             if col is None:
                 formatted = "NULL"
+
+            return formatted
+
+        def format_csv_col(self, col):
+            """ Format a result column value for CSV """
+            formatted = unicode(col).encode('utf-8')
+
+            if col is None:
+                formatted = ""
 
             return formatted
 
