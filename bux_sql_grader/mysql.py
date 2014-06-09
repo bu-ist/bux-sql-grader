@@ -185,11 +185,11 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             super(MySQLEvaluator, self).__init__(*args, **kwargs)
 
         def db_connect(self, database):
-            # Cast MySQL DECIMALs to str instead of float,
+            # Cast MySQL DECIMALs to float instead of Decimal instances,
             # to speed up sorts in scoring.test_rows_match_unsorted()
             converter = MySQLdb.converters.conversions.copy()
-            converter[MySQLdb.constants.FIELD_TYPE.DECIMAL] = str
-            converter[MySQLdb.constants.FIELD_TYPE.NEWDECIMAL] = str
+            converter[MySQLdb.constants.FIELD_TYPE.DECIMAL] = float
+            converter[MySQLdb.constants.FIELD_TYPE.NEWDECIMAL] = float
 
             try:
                 db = MySQLdb.connect(self.host, self.user, self.passwd,
