@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.9
+
+* Removed custom MySQLdb.converter due to comparison / formatting issues
+* Adds closing of DB cursors / connections
+* Adds cleanup method to scoring class to free memory
+
 ## 0.2.8
 
 * Scoring optimizations
