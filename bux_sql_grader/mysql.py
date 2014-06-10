@@ -14,6 +14,8 @@ import os
 from statsd import statsd
 
 import MySQLdb
+import MySQLdb.constants.FIELD_TYPE
+import MySQLdb.converters
 from MySQLdb import OperationalError, Warning, Error
 
 import sqlfilter
@@ -183,18 +185,46 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             super(MySQLEvaluator, self).__init__(*args, **kwargs)
 
         def db_connect(self, database):
-
             try:
                 db = MySQLdb.connect(self.host, self.user, self.passwd,
                                      database, self.port,
                                      charset='utf8', use_unicode=True,
                                      autocommit=True,
-                                     connect_timeout=self.timeout)
+                                     connect_timeout=self.timeout,
+                                     conv=self.db_converter())
             except OperationalError as e:
                 log.exception("Could not connect to DB")
                 raise ImproperlyConfiguredGrader(e)
 
             return db
+
+        def db_converter(self):
+            """ Returns a custom MySQLdb conversions dict that uses str's for everything.
+
+            DECIMAL fields are slow to sort / compare in the scoring methods
+            with large row counts.  Converting all fields to str's gives a
+            performance improvement, and is safe in this context since we're
+            not doing anything with the rows aside from comparing and spitting
+            out HTML / CSVs.
+
+            This code is fragile as it's susceptile to changes in new versions
+            of MySQL and MySQLdb.
+
+            """
+            converter = MySQLdb.converters.conversions.copy()
+
+            converter[MySQLdb.constants.FIELD_TYPE.TINY] = str
+            converter[MySQLdb.constants.FIELD_TYPE.SHORT] = str
+            converter[MySQLdb.constants.FIELD_TYPE.LONG] = str
+            converter[MySQLdb.constants.FIELD_TYPE.FLOAT] = str
+            converter[MySQLdb.constants.FIELD_TYPE.DOUBLE] = str
+            converter[MySQLdb.constants.FIELD_TYPE.DECIMAL] = str
+            converter[MySQLdb.constants.FIELD_TYPE.NEWDECIMAL] = str
+            converter[MySQLdb.constants.FIELD_TYPE.LONGLONG] = str
+            converter[MySQLdb.constants.FIELD_TYPE.INT24] = str
+            converter[MySQLdb.constants.FIELD_TYPE.YEAR] = str
+
+            return converter
 
         def evaluate(self, submission):
             """ Evaluate SQL query problems
