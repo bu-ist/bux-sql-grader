@@ -14,9 +14,12 @@ import os
 from statsd import statsd
 
 import MySQLdb
+import MySQLdb.constants.FIELD_TYPE
+import MySQLdb.converters
 from MySQLdb import OperationalError, Warning, Error
 
 import sqlfilter
+import sqlparse
 
 from string import Template
 from StringIO import StringIO
@@ -49,14 +52,14 @@ INVALID_GRADER_QUERY = Template("""
 </div>""")
 
 CORRECT_QUERY = Template("""
-<div class="correct">
+<div class="correct">$notices
     <small style="float:right">$download_link</small>
     <h3>Query Results</h3>
     $student_results
 </div>""")
 
 INCORRECT_QUERY = Template("""
-<div class="error">
+<div class="error">$notices
     <div style="float:left;width:48%;">
         <small style="float:right">$download_link</small>
         <h3>Your Results</h3>
@@ -77,6 +80,12 @@ DOWNLOAD_LINK = Template("""
 UPLOAD_FAILED_MESSAGE = """
 <small style="color:#b40">Unable to upload results. Please try again later.</small>
 """
+
+WARNING_TMPL = Template("""
+<div style="margin-bottom: 15px; padding: 15px 10px 0 10px; border: 1px solid #b40; border-radius: 3px; background-color: #ffd0ca;">
+$msg
+</div>
+""")
 
 SQL_BLACKLIST = (
     "SLEEP",
@@ -165,13 +174,14 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
         }
 
         def __init__(self, database, host, user, passwd, port=3306, timeout=10,
-                     download_icon=None, *args, **kwargs):
+                     select_limit=10000, download_icon=None, *args, **kwargs):
             self.database = database
             self.host = host
             self.user = user
             self.passwd = passwd
             self.port = port
             self.timeout = timeout
+            self.select_limit = select_limit
 
             # Path to CSV download icon
             if download_icon:
@@ -183,18 +193,46 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             super(MySQLEvaluator, self).__init__(*args, **kwargs)
 
         def db_connect(self, database):
-
             try:
                 db = MySQLdb.connect(self.host, self.user, self.passwd,
                                      database, self.port,
                                      charset='utf8', use_unicode=True,
                                      autocommit=True,
-                                     connect_timeout=self.timeout)
+                                     connect_timeout=self.timeout,
+                                     conv=self.db_converter())
             except OperationalError as e:
                 log.exception("Could not connect to DB")
                 raise ImproperlyConfiguredGrader(e)
 
             return db
+
+        def db_converter(self):
+            """ Returns a custom MySQLdb conversions dict that uses str's for everything.
+
+            DECIMAL fields are slow to sort / compare in the scoring methods
+            with large row counts.  Converting all fields to str's gives a
+            performance improvement, and is safe in this context since we're
+            not doing anything with the rows aside from comparing and spitting
+            out HTML / CSVs.
+
+            This code is fragile as it's susceptile to changes in new versions
+            of MySQL and MySQLdb.
+
+            """
+            converter = MySQLdb.converters.conversions.copy()
+
+            converter[MySQLdb.constants.FIELD_TYPE.TINY] = str
+            converter[MySQLdb.constants.FIELD_TYPE.SHORT] = str
+            converter[MySQLdb.constants.FIELD_TYPE.LONG] = str
+            converter[MySQLdb.constants.FIELD_TYPE.FLOAT] = str
+            converter[MySQLdb.constants.FIELD_TYPE.DOUBLE] = str
+            converter[MySQLdb.constants.FIELD_TYPE.DECIMAL] = str
+            converter[MySQLdb.constants.FIELD_TYPE.NEWDECIMAL] = str
+            converter[MySQLdb.constants.FIELD_TYPE.LONGLONG] = str
+            converter[MySQLdb.constants.FIELD_TYPE.INT24] = str
+            converter[MySQLdb.constants.FIELD_TYPE.YEAR] = str
+
+            return converter
 
         def evaluate(self, submission):
             """ Evaluate SQL query problems
@@ -208,10 +246,12 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             payload = self.parse_grader_payload(body["grader_payload"])
 
             db = self.db_connect(payload["database"])
+            self.set_select_limit(db)
 
             response = {"correct": False, "score": 0, "msg": ""}
 
             # Evaluate the students response
+            student_warnings = []
             student_response = self.filter_query(body["student_response"])
             try:
                 student_results = self.execute_query(db, student_response)
@@ -221,7 +261,12 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 db.close()
                 return response
 
+            # Let the student know their query was insane.
+            if len(student_results[1]) == self.select_limit:
+                student_warnings.append("The result set below is incomplete. Your query was modified to LIMIT results to %d rows. Consider adding a WHERE or LIMIT clause to narrow down results, and check any JOIN statements to make sure you're joining ON the appropriate columns." % self.select_limit)
+
             # Evaluate the canonical grader answer (if present)
+            grader_warnings = []
             grader_response = self.filter_query(payload["answer"])
             if grader_response:
                 try:
@@ -231,6 +276,10 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                     response["msg"] = self.validate_message(INVALID_GRADER_QUERY.substitute(context))
                     db.close()
                     return response
+
+                # Let the course authors know their query was insane.
+                if len(grader_results[1]) == self.select_limit:
+                    grader_warnings.append("The result set below is incomplete. Your query was modified to LIMIT results to %d rows. Consider adding a WHERE or LIMIT clause to narrow down results, and check any JOIN statements to make sure you're joining ON the appropriate columns." % self.select_limit)
 
                 correct, score, hints = self.grade_results(student_response,
                                                            student_results,
@@ -269,22 +318,81 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                                            score=score,
                                            hints=hints,
                                            student_results=student_results,
+                                           student_warnings=student_warnings,
                                            grader_results=grader_results,
+                                           grader_warnings=grader_warnings,
                                            row_limit=payload["row_limit"],
                                            download_link=download_link)
 
             db.close()
             return response
 
+        def set_select_limit(self, db):
+            """ Set the SQL_SELECT_LIMIT for this session.
+
+            For protection against poorly conceived queries.
+
+            """
+            if not self.select_limit:
+                return
+
+            cursor = db.cursor()
+            cursor.execute("SET SQL_SELECT_LIMIT = %d" % self.select_limit)
+            cursor.close()
+
         def filter_query(self, query):
             """ Filter SQL query to remove any blacklisted keywords """
             if not query:
                 return query
 
+            # Make sure LIMIT clauses are sane
+            query = self.enforce_select_limit(query)
+
+            # Remove terms from blacklist
             filtered = sqlfilter.filter_sql(query, SQL_BLACKLIST, False)
             if filtered != query:
                 log.warning("SQL query was filtered. Before: %s After: %s", query, filtered)
+
             return filtered
+
+        def enforce_select_limit(self, query):
+            """ Examines queries to ensure LIMIT clauses do not exceed our select_limit. """
+            if not self.select_limit:
+                return query
+
+            enforced = False
+
+            stmts = sqlparse.parse(query)
+            for stmt in stmts:
+                limit = stmt.token_next_match(0, sqlparse.tokens.Keyword, 'LIMIT')
+                if limit:
+                    value = stmt.token_next(stmt.token_index(limit))
+
+                    # Limit is an identifier list (e.g. LIMIT 5,10)
+                    if value.is_group():
+                        value = value.token_next(1)
+
+                        # Malformed offset LIMIT, skip it
+                        if not value:
+                            break
+
+                    # Ensure LIMIT value is an integer
+                    if value.ttype == sqlparse.tokens.Number.Integer:
+                        limit_val = int(value.value)
+                        if limit_val > self.select_limit:
+                            value.value = unicode(self.select_limit)
+                            enforced = True
+
+                    # LIMIT is ... something else.  Probably invalid SQL.  Ignore it.
+                    else:
+                        log.warning("Unexpected value following LIMIT clause: %s  Query: %s", unicode(value), unicode(stmt))
+
+            # Reconstruct the query from the modified sqlparse objects
+            if enforced:
+                query = "".join([unicode(stmt) for stmt in stmts])
+                log.warning("Enforced SQL_SELECT_LIMIT for query: %s (original limit = %d)", query, limit_val)
+
+            return query
 
         def execute_query(self, db, stmt):
             """ Execute the SQL query
@@ -361,7 +469,8 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             return download_link
 
         def build_response(self, correct, score, hints, student_results,
-                           grader_results=None, row_limit=None,
+                           student_warnings=[], grader_results=None,
+                           grader_warnings=[], row_limit=None,
                            download_link=""):
             """ Builds a grader response dict. """
 
@@ -373,6 +482,22 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             # Generate student response results table
             context["student_results"] = self.html_results(student_results,
                                                            row_limit)
+
+            # Generate warning messages if queries had to be modified
+            notices = ""
+            if student_warnings:
+                student_warnings = [xml_escape(notice) for notice in student_warnings]
+                student_warning = "<strong>Warning</strong><p>"
+                student_warning += "</p><p>".join(student_warnings) + "</p>"
+                notices += WARNING_TMPL.substitute(msg=student_warning)
+
+            if grader_warnings:
+                grader_warnings = [xml_escape(notice) for notice in grader_warnings]
+                grader_warning = "<strong>Warning</strong><p>"
+                grader_warning += "</p><p>".join(grader_warnings) + "</p>"
+                notices += WARNING_TMPL.substitute(msg=grader_warning)
+
+            context["notices"] = notices
 
             if grader_results and not correct:
 
