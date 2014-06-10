@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+
+* Adds automatic query LIMITs via the `select_limit` arg
+* Adds custom MySQLdb converter to optimize scoring methods
+
 ## 0.2.9
 
 * Removed custom MySQLdb.converter due to comparison / formatting issues
