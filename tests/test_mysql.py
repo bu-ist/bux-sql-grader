@@ -119,7 +119,15 @@ class TestMySQLEvaluator(unittest.TestCase):
         self.grader.upload_results = MagicMock(return_value=download_link)
 
         # Build response using grader API
-        expected = self.grader.build_response(True, 1.0, [], results, results, row_limit, download_link)
+        expected = self.grader.build_response(correct=True,
+                                              score=1.0,
+                                              hints=[],
+                                              student_results=results,
+                                              student_warnings=[],
+                                              grader_results=results,
+                                              grader_warnings=[],
+                                              row_limit=row_limit,
+                                              download_link=download_link)
 
         self.assertEquals(expected, self.grader.evaluate(DUMMY_SUBMISSION))
 
@@ -146,7 +154,7 @@ class TestMySQLEvaluator(unittest.TestCase):
             def second_call(*args):
                 raise InvalidQuery(error_msg)
             mock_exec_query.side_effect = second_call
-            return
+            return ((), ())
 
         mock_exec_query = MagicMock(side_effect=side_effect)
         self.grader.execute_query = mock_exec_query
@@ -193,7 +201,10 @@ class TestMySQLEvaluator(unittest.TestCase):
         self.grader.execute_query = MagicMock(return_value=results)
         self.grader.upload_results = MagicMock(return_value='')
 
-        expected = self.grader.build_response(True, 1.0, [], results)
+        expected = self.grader.build_response(correct=True,
+                                              score=1.0,
+                                              hints=[],
+                                              student_results=results)
         actual = self.grader.evaluate(submission)
 
         self.assertEquals(expected, actual)
@@ -235,7 +246,7 @@ class TestMySQLEvaluator(unittest.TestCase):
             def second_call(*args):
                 raise InvalidQuery(error_msg)
             mock_exec_query.side_effect = second_call
-            return
+            return ((), ())
 
         mock_exec_query = MagicMock(side_effect=side_effect)
         self.grader.execute_query = mock_exec_query
@@ -257,7 +268,15 @@ class TestMySQLEvaluator(unittest.TestCase):
         self.grader.upload_results = MagicMock(return_value=download_link)
 
         # Build response using grader API
-        expected = self.grader.build_response(True, 1.0, [], results, results, row_limit, download_link)
+        expected = self.grader.build_response(correct=True,
+                                              score=1.0,
+                                              hints=[],
+                                              student_results=results,
+                                              student_warnings=[],
+                                              grader_results=results,
+                                              grader_warnings=[],
+                                              row_limit=row_limit,
+                                              download_link=download_link)
 
         self.assertEquals(expected, self.grader.evaluate(DUMMY_SUBMISSION))
 
@@ -271,7 +290,15 @@ class TestMySQLEvaluator(unittest.TestCase):
         self.grader.upload_results = MagicMock(return_value=download_link)
 
         # Build response using grader API
-        expected = self.grader.build_response(True, 1.0, [], results, results, row_limit, download_link)
+        expected = self.grader.build_response(correct=True,
+                                              score=1.0,
+                                              hints=[],
+                                              student_results=results,
+                                              student_warnings=[],
+                                              grader_results=results,
+                                              grader_warnings=[],
+                                              row_limit=row_limit,
+                                              download_link=download_link)
 
         self.assertEquals(expected, self.grader.evaluate(DUMMY_SUBMISSION))
 
@@ -282,6 +309,35 @@ class TestMySQLEvaluator(unittest.TestCase):
 
     def test_upload_results(self, mock_db, mock_statsd, mock_statsd_scoring):
         pass
+
+    def test_enforce_sql_select_limit_ignores_legal_limits(self, mock_db, mock_statsd, mock_statsd_scoring):
+        query = "SELECT * FROM foo LIMIT 10"
+        expected = "SELECT * FROM foo LIMIT 10"
+        self.assertEquals(expected, self.grader.enforce_select_limit(query))
+
+        query = "SELECT * FROM foo LIMIT 10,10"
+        expected = "SELECT * FROM foo LIMIT 10,10"
+        self.assertEquals(expected, self.grader.enforce_select_limit(query))
+
+    def test_enforce_sql_select_limit_replaces_illegal_limits(self, mock_db, mock_statsd, mock_statsd_scoring):
+        query = "SELECT * FROM foo LIMIT 10001"
+        expected = "SELECT * FROM foo LIMIT 10000"
+        self.assertEquals(expected, self.grader.enforce_select_limit(query))
+
+        query = "SELECT * FROM foo LIMIT 10,10001"
+        expected = "SELECT * FROM foo LIMIT 10,10000"
+        self.assertEquals(expected, self.grader.enforce_select_limit(query))
+
+    def test_enforce_sql_select_limit_with_syntax_errors(self, mock_db, mock_statsd, mock_statsd_scoring):
+        # These will generate warnings but not modifiy the queries as MySQL
+        # won't be able to execute them anyways.
+        query = "SELECT * FROM foo LIMIT '10001'"
+        expected = "SELECT * FROM foo LIMIT '10001'"
+        self.assertEquals(expected, self.grader.enforce_select_limit(query))
+
+        query = "SELECT * FROM foo LIMIT < 10000"
+        expected = "SELECT * FROM foo LIMIT < 10000"
+        self.assertEquals(expected, self.grader.enforce_select_limit(query))
 
     def test_build_response(self, mock_db, mock_statsd, mock_statsd_scoring):
         pass
