@@ -221,16 +221,20 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             """
             converter = MySQLdb.converters.conversions.copy()
 
-            converter[MySQLdb.constants.FIELD_TYPE.TINY] = str
-            converter[MySQLdb.constants.FIELD_TYPE.SHORT] = str
-            converter[MySQLdb.constants.FIELD_TYPE.LONG] = str
-            converter[MySQLdb.constants.FIELD_TYPE.FLOAT] = str
-            converter[MySQLdb.constants.FIELD_TYPE.DOUBLE] = str
-            converter[MySQLdb.constants.FIELD_TYPE.DECIMAL] = str
-            converter[MySQLdb.constants.FIELD_TYPE.NEWDECIMAL] = str
-            converter[MySQLdb.constants.FIELD_TYPE.LONGLONG] = str
-            converter[MySQLdb.constants.FIELD_TYPE.INT24] = str
-            converter[MySQLdb.constants.FIELD_TYPE.YEAR] = str
+            converter[MySQLdb.constants.FIELD_TYPE.TINY] = unicode
+            converter[MySQLdb.constants.FIELD_TYPE.SHORT] = unicode
+            converter[MySQLdb.constants.FIELD_TYPE.LONG] = unicode
+            converter[MySQLdb.constants.FIELD_TYPE.FLOAT] = unicode
+            converter[MySQLdb.constants.FIELD_TYPE.DOUBLE] = unicode
+            converter[MySQLdb.constants.FIELD_TYPE.DECIMAL] = unicode
+            converter[MySQLdb.constants.FIELD_TYPE.NEWDECIMAL] = unicode
+            converter[MySQLdb.constants.FIELD_TYPE.LONGLONG] = unicode
+            converter[MySQLdb.constants.FIELD_TYPE.INT24] = unicode
+            converter[MySQLdb.constants.FIELD_TYPE.YEAR] = unicode
+            converter[MySQLdb.constants.FIELD_TYPE.TIMESTAMP] = unicode
+            converter[MySQLdb.constants.FIELD_TYPE.DATETIME] = unicode
+            converter[MySQLdb.constants.FIELD_TYPE.TIME] = unicode
+            converter[MySQLdb.constants.FIELD_TYPE.DATE] = unicode
 
             return converter
 
