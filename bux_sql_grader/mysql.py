@@ -463,7 +463,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                            "icon_src": xml_escape(self.download_icon)}
                 download_link = DOWNLOAD_LINK.substitute(context)
             else:
-                download_link = xml_escape(UPLOAD_FAILED_MESSAGE)
+                download_link = UPLOAD_FAILED_MESSAGE
 
             timer.stop()
             return download_link
