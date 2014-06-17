@@ -369,27 +369,27 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             stmts = sqlparse.parse(query)
             for stmt in stmts:
                 limit = stmt.token_next_match(0, sqlparse.tokens.Keyword, 'LIMIT')
-                if limit:
+                while limit:
                     value = stmt.token_next(stmt.token_index(limit))
 
-                    # Limit is an identifier list (e.g. LIMIT 5,10)
-                    if value.is_group():
+                    # LIMIT may be an identifier list (e.g. LIMIT 5,10).
+                    # Attempt to extract second value from the group.
+                    if isinstance(value, sqlparse.sql.Token) and value.is_group():
                         value = value.token_next(1)
 
-                        # Malformed offset LIMIT, skip it
-                        if not value:
-                            break
-
-                    # Ensure LIMIT value is an integer
-                    if value.ttype == sqlparse.tokens.Number.Integer:
+                    # Ensure LIMIT is a legal value (integer) before modifying.
+                    if isinstance(value, sqlparse.sql.Token) and value.ttype == sqlparse.tokens.Number.Integer:
                         limit_val = int(value.value)
                         if limit_val > self.select_limit:
                             value.value = unicode(self.select_limit)
                             enforced = True
 
-                    # LIMIT is ... something else.  Probably invalid SQL.  Ignore it.
+                    # LIMIT is ... something else.  Probably invalid SQL. Log and ignore it.
                     else:
                         log.warning("Unexpected value following LIMIT clause: %s  Query: %s", unicode(value), unicode(stmt))
+
+                    # Get next LIMIT statement
+                    limit = stmt.token_next_match(stmt.token_index(limit) + 1, sqlparse.tokens.Keyword, 'LIMIT')
 
             # Reconstruct the query from the modified sqlparse objects
             if enforced:

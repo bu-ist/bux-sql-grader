@@ -311,32 +311,58 @@ class TestMySQLEvaluator(unittest.TestCase):
         pass
 
     def test_enforce_sql_select_limit_ignores_legal_limits(self, mock_db, mock_statsd, mock_statsd_scoring):
-        query = "SELECT * FROM foo LIMIT 10"
-        expected = "SELECT * FROM foo LIMIT 10"
+        query = u"SELECT * FROM foo LIMIT 10"
+        expected = u"SELECT * FROM foo LIMIT 10"
         self.assertEquals(expected, self.grader.enforce_select_limit(query))
 
-        query = "SELECT * FROM foo LIMIT 10,10"
-        expected = "SELECT * FROM foo LIMIT 10,10"
+        query = u"SELECT * FROM foo LIMIT 10,10"
+        expected = u"SELECT * FROM foo LIMIT 10,10"
         self.assertEquals(expected, self.grader.enforce_select_limit(query))
 
     def test_enforce_sql_select_limit_replaces_illegal_limits(self, mock_db, mock_statsd, mock_statsd_scoring):
-        query = "SELECT * FROM foo LIMIT 10001"
-        expected = "SELECT * FROM foo LIMIT 10000"
+        query = u"SELECT * FROM foo LIMIT 10001"
+        expected = u"SELECT * FROM foo LIMIT 10000"
         self.assertEquals(expected, self.grader.enforce_select_limit(query))
 
-        query = "SELECT * FROM foo LIMIT 10,10001"
-        expected = "SELECT * FROM foo LIMIT 10,10000"
+        query = u"SELECT * FROM foo LIMIT 10,10001"
+        expected = u"SELECT * FROM foo LIMIT 10,10000"
         self.assertEquals(expected, self.grader.enforce_select_limit(query))
 
     def test_enforce_sql_select_limit_with_syntax_errors(self, mock_db, mock_statsd, mock_statsd_scoring):
         # These will generate warnings but not modifiy the queries as MySQL
         # won't be able to execute them anyways.
-        query = "SELECT * FROM foo LIMIT '10001'"
-        expected = "SELECT * FROM foo LIMIT '10001'"
+        query = u"SELECT * FROM foo LIMIT '10001'"
+        expected = u"SELECT * FROM foo LIMIT '10001'"
         self.assertEquals(expected, self.grader.enforce_select_limit(query))
 
-        query = "SELECT * FROM foo LIMIT < 10000"
-        expected = "SELECT * FROM foo LIMIT < 10000"
+        query = u"SELECT * FROM foo LIMIT < 10000"
+        expected = u"SELECT * FROM foo LIMIT < 10000"
+        self.assertEquals(expected, self.grader.enforce_select_limit(query))
+
+        query = u"SELECT * FROM foo LIMIT"
+        expected = u"SELECT * FROM foo LIMIT"
+        self.assertEquals(expected, self.grader.enforce_select_limit(query))
+
+    def test_enforce_sql_select_limit_multi_statement(self, mock_db, mock_statsd, mock_statsd_scoring):
+        query = u"SELECT playerID, · FROM Batting WHERE yearID = 2013 LIMIT 10001; SELECT * FROM foo LIMIT 10002"
+        expected = u"SELECT playerID, · FROM Batting WHERE yearID = 2013 LIMIT 10000; SELECT * FROM foo LIMIT 10000"
+
+        self.assertEquals(expected, self.grader.enforce_select_limit(query))
+
+    def test_enforce_sql_select_limit_multi_statement_with_comments(self, mock_db, mock_statsd, mock_statsd_scoring):
+        query = u"""# SELECT playerID, ·
+# FROM Batting
+# WHERE yearID = 2013
+# LIMIT 10001
+
+SELECT * FROM foo LIMIT 10002"""
+
+        expected = u"""# SELECT playerID, ·
+# FROM Batting
+# WHERE yearID = 2013
+# LIMIT 10000
+
+SELECT * FROM foo LIMIT 10000"""
         self.assertEquals(expected, self.grader.enforce_select_limit(query))
 
     def test_build_response(self, mock_db, mock_statsd, mock_statsd_scoring):
