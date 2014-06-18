@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+
+* Adds MySQL date types to custom MySQLdb.converter
+* Adds support for multiple LIMIT clauses within a single statement
+* Removes unneccessary escaping of upload error message
+
 ## 0.3.0
 
 * Adds automatic query LIMITs via the `select_limit` arg
