@@ -225,7 +225,11 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             converter[MySQLdb.constants.FIELD_TYPE.SHORT] = unicode
             converter[MySQLdb.constants.FIELD_TYPE.LONG] = unicode
             converter[MySQLdb.constants.FIELD_TYPE.FLOAT] = unicode
-            converter[MySQLdb.constants.FIELD_TYPE.DOUBLE] = unicode
+            # Hack alert! The unicode conversion was resulting in extra
+            # precision for DOUBLE columns that was causing issues with
+            # R problems. We're keeping them as floats to preserve the
+            # current behavior.
+            converter[MySQLdb.constants.FIELD_TYPE.DOUBLE] = float
             converter[MySQLdb.constants.FIELD_TYPE.DECIMAL] = unicode
             converter[MySQLdb.constants.FIELD_TYPE.NEWDECIMAL] = unicode
             converter[MySQLdb.constants.FIELD_TYPE.LONGLONG] = unicode
