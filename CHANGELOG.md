@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2
+
+* Switches DOUBLE from unicode -> float in custom MySQLdb converter dict. Preserves current behavior / fixes precision issue with R problems.
+
 ## 0.3.1
 
 * Adds MySQL date types to custom MySQLdb.converter
