@@ -86,6 +86,15 @@ $msg
 </div>
 """)
 
+EVAL_FAILURE_HINTS = """
+<p>It's possible that the query you submitted is returning too large of a result set.</p>
+<ul>
+<li>Consider adding WHERE clauses to narrow down the result set</li>
+<li>Check your JOIN statements and make sure you're joining ON an appropriate column</li>
+<li>Prefix your query with EXPLAIN to check for possible inefficiencies</li>
+</ul>
+"""
+
 SQL_BLACKLIST = (
     "SLEEP",
     "AES_DECRYPT",
@@ -629,6 +638,16 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 limit = None
 
             return limit
+
+        def fail_hints(self):
+            """ Hints to be appended to evaluation failure messages.
+
+            This method is called by the grader framework when an evaluation
+            fails. We're offering tips on query optimization in case a bad
+            query was the root cause.
+
+            """
+            return EVAL_FAILURE_HINTS
 
         def status(self):
             """ Assert that a DB connection can be made """
