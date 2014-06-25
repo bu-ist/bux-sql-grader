@@ -25,7 +25,6 @@ from string import Template
 from StringIO import StringIO
 
 from xml.sax.saxutils import escape as xml_escape
-from lxml import etree
 
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
@@ -265,7 +264,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 student_results = self.execute_query(db, student_response)
             except InvalidQuery as e:
                 context = {"error": xml_escape(str(e))}
-                response["msg"] = self.validate_message(INVALID_STUDENT_QUERY.substitute(context))
+                response["msg"] = INVALID_STUDENT_QUERY.substitute(context)
                 db.close()
                 return response
 
@@ -281,7 +280,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                     grader_results = self.execute_query(db, grader_response)
                 except InvalidQuery as e:
                     context = {"error": xml_escape(str(e))}
-                    response["msg"] = self.validate_message(INVALID_GRADER_QUERY.substitute(context))
+                    response["msg"] = INVALID_GRADER_QUERY.substitute(context)
                     db.close()
                     return response
 
@@ -526,13 +525,10 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                     context["hints"] = hints_html
 
                 # Incorrect response template
-                message = INCORRECT_QUERY.substitute(context)
+                response["msg"] = INCORRECT_QUERY.substitute(context)
             else:
                 # Correct response template
-                message = CORRECT_QUERY.substitute(context)
-
-            # LMS is strict with message contents...
-            response["msg"] = self.validate_message(message)
+                response["msg"] = CORRECT_QUERY.substitute(context)
 
             return response
 
@@ -633,24 +629,6 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
                 limit = None
 
             return limit
-
-        def validate_message(self, message):
-            """ Ensure that the message does not contain invalid XML entities.
-
-            The LMS runs grader messages through lxml.etree.fromstring which
-            raises an exception it contains any invalid XML. This will actually
-            kill the problem module, displaying a gnarly traceback to the student
-            when the page is reloaded.
-
-           """
-            try:
-                etree.fromstring(message)
-            except etree.XMLSyntaxError as e:
-                log.error("Message contains invalid XML: %s (%s)", message, e)
-                message = "<div>Unable to display results. Please report this issue to course staff.</div>"
-                statsd.incr('bux_sql_grader.invalid_message')
-
-            return message
 
         def status(self):
             """ Assert that a DB connection can be made """
