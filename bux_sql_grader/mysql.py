@@ -37,6 +37,8 @@ from .scoring import MySQLRubricScorer
 
 log = logging.getLogger(__file__)
 
+MAX_QUERY_LENGTH = 10000
+
 INVALID_STUDENT_QUERY = Template("""
 <div class="error">
     <h4 style="color:#b40">Could not execute query:</h4>
@@ -260,11 +262,17 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             header = submission["xqueue_header"]
             body = submission["xqueue_body"]
             payload = self.parse_grader_payload(body["grader_payload"])
+            response = {"correct": False, "score": 0, "msg": ""}
+
+            # Make sure the query length is sane before doing anything with it.
+            if not self.is_legal_query_length(body["student_response"]):
+                msg = "<p>The SQL grader cannot process queries with over %d characters. Please revise your submission and try again.</p>" % (
+                      MAX_QUERY_LENGTH)
+                response["msg"] = WARNING_TMPL.substitute(msg=msg)
+                return response
 
             db = self.db_connect(payload["database"])
             self.set_select_limit(db)
-
-            response = {"correct": False, "score": 0, "msg": ""}
 
             # Evaluate the students response
             student_warnings = []
@@ -342,6 +350,14 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
             db.close()
             return response
+
+        def is_legal_query_length(self, query):
+            """ Checks a query to determine if it exceeds MAX_QUERY_LENGTH. """
+            if len(query) > MAX_QUERY_LENGTH:
+                log.warn("Query length exceeds MAX_QUERY_LENGTH: %d",
+                         len(query))
+                return False
+            return True
 
         def set_select_limit(self, db):
             """ Set the SQL_SELECT_LIMIT for this session.
