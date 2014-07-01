@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0
+
+* Corresponds with 0.4.0 release of bux-grader-framework
+* Removes LXML message valiadtion (moved to the framework)
+* Adds failure hints for framework to display when evaluation fails unexpectedly
+
+## 0.3.3
+
+* Adds MAX_QUERY_LENGTH to prevent execution of unrealistically large queries (10,000+ characters)
+
 ## 0.3.2
 
 * Switches DOUBLE from unicode -> float in custom MySQLdb converter dict. Preserves current behavior / fixes precision issue with R problems.
