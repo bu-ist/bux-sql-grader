@@ -7,7 +7,7 @@ except ImportError:
 
 setup(
     name='bux-sql-grader',
-    version='0.4.0',
+    version='0.4.1',
     author='Boston University',
     author_email='webteam@bu.edu',
     url='https://github.com/bu-ist/bux-sql-grader/',
