@@ -137,12 +137,13 @@ class S3UploaderMixin(object):
 
     DEFAULT_S3_FILENAME = "results.csv"
 
-    def __init__(self, s3_bucket, s3_prefix, aws_access_key, aws_secret_key):
+    def __init__(self, s3_bucket=None, s3_prefix="results",
+                 aws_access_key=None, aws_secret_key=None):
 
         self.s3_bucket = s3_bucket
-        self.s3_prefix = s3_prefix
         self.aws_access_key = aws_access_key
         self.aws_secret_key = aws_secret_key
+        self.s3_prefix = s3_prefix
 
     def upload_to_s3(self, contents, path):
         """Upload submission results to S3
@@ -156,8 +157,11 @@ class S3UploaderMixin(object):
             s3 = S3Connection(self.aws_access_key, self.aws_secret_key)
             bucket = s3.get_bucket(self.s3_bucket, validate=False)
 
-            keyname = "{prefix}/{path}".format(prefix=self.s3_prefix,
-                                               path=path)
+            if self.s3_prefix:
+                keyname = os.path.join(self.s3_prefix, path)
+            else:
+                keyname = path
+
             key = Key(bucket, keyname)
             key.set_contents_from_string(contents, replace=True)
             s3_url = key.generate_url(60*60*24)
@@ -184,7 +188,8 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
         }
 
         def __init__(self, database, host, user, passwd, port=3306, timeout=10,
-                     select_limit=10000, download_icon=None, *args, **kwargs):
+                     select_limit=10000, download_icon=None,
+                     s3_upload=True, *args, **kwargs):
             self.database = database
             self.host = host
             self.user = user
@@ -192,6 +197,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             self.port = port
             self.timeout = timeout
             self.select_limit = select_limit
+            self.s3_upload = s3_upload
 
             # Path to CSV download icon
             if download_icon:
@@ -634,6 +640,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
 
             # Update class defaults with instance values
             defaults["database"] = self.database
+            defaults["upload_results"] = self.s3_upload
 
             # Merge defaults with passed in values
             payload = dict(defaults.items() + payload.items())
