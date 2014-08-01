@@ -12,7 +12,7 @@ Pull down this repository and use `pip` to install development requirements:
 
 ```bash
 $ git clone git@github.com:bu-ist/bux-sql-grader
-$ pip install -r dev-requirements.txt
+$ pip install -r requirements.txt
 ```
 
 ### Documentation
