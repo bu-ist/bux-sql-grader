@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+
+* Open source release
+* Make S3 uploads optional
+
 ## 0.4.0
 
 * Corresponds with 0.4.0 release of bux-grader-framework
