@@ -4,6 +4,77 @@ An [external grader](http://ca.readthedocs.org/en/latest/problems_tools/external
 
 Designed for use with the [edX External Grader framework](https://github.com/bu-ist/bux-grader-framework/).
 
+## Features
+
+* Grade MySQL problems with edX
+* Rubric-based scoring to assign partial credit for incorrect submissions
+* Generates hints for incorrect responses to help students identifiy errors
+* Optionally uploads query results in CSV format to S3 bucket for download
+* "Sandbox" mode allows students to experiment with ungraded problems
+
+## Prerequisites
+
+* A dedicated XQueue queue with authentication credentials
+* MySQL
+* Amazon S3 bucket and auth credneitals if CSV upload is required
+
+## Quick Start
+
+1. Add this repository to your course repositories `requirements.txt`:
+
+```
+# requirements.txt:
+
+git+https://github.com/bu-ist/bux-sql-grader.git@master#egg=bux-sql-grader
+git+https://github.com/bu-ist/bux-grader-framework.git@master#egg=bux-grader-framework
+```
+
+2. Install the requirements with pip (use of `virtualenv` is highly recommended):
+
+```bash
+$ pip install -r requirements.txt
+```
+
+3. Add a settings module to for your course:
+
+```python
+# settings.py
+
+# XQueue configuration
+XQUEUE_QUEUE = "your-xqueue-queue"
+XQUEUE_URL = "http://your-xqueue-host.com:18040"
+XQUEUE_USER = "your-xqueue-user"
+XQUEUE_PASSWORD = "your-xqueue-password"
+
+# Evaluator configuration
+EVALUATOR_MODULES = {
+    "bux_sql_grader"
+}
+
+EVALUATOR_CONFIG = {
+    "mysql": {
+        "database": "default-database-name",
+        "host": "your-db-hostname-here",
+        "user": "your-db-username-here",
+        "passwd": "your-db-passwd-here",
+        "port": 3306,
+        "upload_results": True,
+        "s3_bucket": "your-s3-bucket-name-here",
+        "aws_access_key": "your-aws-access-key-here",
+        "aws_secret_key": "your-aws-secret-key-here"
+    }
+}
+```
+
+4. Start the grader:
+
+```python
+grader --settings=settings
+```
+
+See the [demo course repository](https://github.com/bu-ist/bux-demo-course-grader) for an example course configuration.
+See the [configuration repository](https://github.com/bu-ist/bux-grader-configuration) for automated way to set up your grader environment.
+
 ## Contributing
 
 Pull requests are welcome!
