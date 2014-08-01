@@ -23,8 +23,6 @@ Designed for use with the [edX External Grader framework](https://github.com/bu-
 1. Add this repository to your course repositories `requirements.txt`:
 
 ```
-# requirements.txt:
-
 git+https://github.com/bu-ist/bux-sql-grader.git@master#egg=bux-sql-grader
 git+https://github.com/bu-ist/bux-grader-framework.git@master#egg=bux-grader-framework
 ```
@@ -58,7 +56,7 @@ EVALUATOR_CONFIG = {
         "user": "your-db-username-here",
         "passwd": "your-db-passwd-here",
         "port": 3306,
-        "upload_results": True,
+        "s3_upload": True,
         "s3_bucket": "your-s3-bucket-name-here",
         "aws_access_key": "your-aws-access-key-here",
         "aws_secret_key": "your-aws-secret-key-here"
@@ -72,8 +70,7 @@ EVALUATOR_CONFIG = {
 grader --settings=settings
 ```
 
-See the [demo course repository](https://github.com/bu-ist/bux-demo-course-grader) for an example course configuration.
-See the [configuration repository](https://github.com/bu-ist/bux-grader-configuration) for automated way to set up your grader environment.
+See the [demo course repository](https://github.com/bu-ist/bux-demo-course-grader) for an example course configuration. See the [configuration repository](https://github.com/bu-ist/bux-grader-configuration) for a more automated way to set up your grader environment.
 
 ## Contributing
 
