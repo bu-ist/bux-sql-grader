@@ -23,51 +23,51 @@ Designed for use with the [edX External Grader framework](https://github.com/bu-
 1. Add this repository to your course repositories `requirements.txt`:
 
     ```
-git+https://github.com/bu-ist/bux-sql-grader.git@master#egg=bux-sql-grader
-git+https://github.com/bu-ist/bux-grader-framework.git@master#egg=bux-grader-framework
+    git+https://github.com/bu-ist/bux-sql-grader.git@master#egg=bux-sql-grader
+    git+https://github.com/bu-ist/bux-grader-framework.git@master#egg=bux-grader-framework
     ```
 
 2. Install the requirements with pip (use of `virtualenv` is highly recommended):
 
     ```bash
-$ pip install -r requirements.txt
+    $ pip install -r requirements.txt
     ```
 
 3. Add a settings module to for your course:
 
     ```python
-# settings.py
+    # settings.py
 
-# XQueue configuration
-XQUEUE_QUEUE = "your-xqueue-queue"
-XQUEUE_URL = "http://your-xqueue-host.com:18040"
-XQUEUE_USER = "your-xqueue-user"
-XQUEUE_PASSWORD = "your-xqueue-password"
+    # XQueue configuration
+    XQUEUE_QUEUE = "your-xqueue-queue"
+    XQUEUE_URL = "http://your-xqueue-host.com:18040"
+    XQUEUE_USER = "your-xqueue-user"
+    XQUEUE_PASSWORD = "your-xqueue-password"
 
-# Evaluator configuration
-EVALUATOR_MODULES = {
-    "bux_sql_grader"
-}
-
-EVALUATOR_CONFIG = {
-    "mysql": {
-        "database": "default-database-name",
-        "host": "your-db-hostname-here",
-        "user": "your-db-username-here",
-        "passwd": "your-db-passwd-here",
-        "port": 3306,
-        "s3_upload": True,
-        "s3_bucket": "your-s3-bucket-name-here",
-        "aws_access_key": "your-aws-access-key-here",
-        "aws_secret_key": "your-aws-secret-key-here"
+    # Evaluator configuration
+    EVALUATOR_MODULES = {
+        "bux_sql_grader"
     }
-}
+
+    EVALUATOR_CONFIG = {
+        "mysql": {
+            "database": "default-database-name",
+            "host": "your-db-hostname-here",
+            "user": "your-db-username-here",
+            "passwd": "your-db-passwd-here",
+            "port": 3306,
+            "s3_upload": True,
+            "s3_bucket": "your-s3-bucket-name-here",
+            "aws_access_key": "your-aws-access-key-here",
+            "aws_secret_key": "your-aws-secret-key-here"
+        }
+    }
     ```
 
 4. Start the grader:
 
     ```python
-grader --settings=settings
+    grader --settings=settings
     ```
 
 See the [demo course repository](https://github.com/bu-ist/bux-demo-course-grader) for an example course configuration. See the [configuration repository](https://github.com/bu-ist/bux-grader-configuration) for a more automated way to set up your grader environment.
