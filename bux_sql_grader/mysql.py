@@ -194,7 +194,7 @@ class MySQLEvaluator(S3UploaderMixin, BaseEvaluator):
             self.host = host
             self.user = user
             self.passwd = passwd
-            self.port = port
+            self.port = int(port)
             self.timeout = timeout
             self.select_limit = select_limit
             self.s3_upload = s3_upload
