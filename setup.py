@@ -7,7 +7,7 @@ except ImportError:
 
 setup(
     name='bux-sql-grader',
-    version='0.4.1',
+    version='0.4.2',
     author='Boston University',
     author_email='webteam@bu.edu',
     url='https://github.com/bu-ist/bux-sql-grader/',
@@ -16,5 +16,9 @@ setup(
     packages=['bux_sql_grader'],
     scripts=['bin/sqlmon.py'],
     license='LICENSE',
-    install_requires=['boto', 'MySQL-python', 'sqlparse']
+    install_requires=[
+        'boto>=2.38.0, <3.0',
+        'MySQL-python>=1.2.5, <1.3',
+        'sqlparse>=0.1.15, <0.2',
+        ]
 )
